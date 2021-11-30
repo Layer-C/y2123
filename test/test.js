@@ -3,8 +3,7 @@ const { MerkleTree } = require('merkletreejs');
 const keccak256 = require('keccak256');
 
 describe("Y2123 Contract", function () {
-  let yContract, merkleTree, root;
-  let owner, addr1, addr2, addr3, addr4, addr5;
+  let yContract, accounts, merkleTree, root;
   let list = [];
 
   beforeEach(async () => {
@@ -12,7 +11,7 @@ describe("Y2123 Contract", function () {
     yContract = await contract.deploy();
     await yContract.deployed();
 
-    [owner, addr1, addr2, addr3, addr4, addr5] = await ethers.getSigners();
+    accounts = await ethers.getSigners();
   });
 
   it("Should return the right name and symbol", async function () {
@@ -25,23 +24,31 @@ describe("Y2123 Contract", function () {
   });
 
   it("Should set the right owner", async () => {
-    expect(await yContract.owner()).to.equal(await owner.address);
+    expect(await yContract.owner()).to.equal(await accounts[0].address);
   });
 
-  it("Presale minting", async () => {
+  it("Presale minting with working proof", async () => {
     await yContract.toggleSale();
     const nftPrice = await yContract.mintPrice();
-    const tokenId = await yContract.totalSupply();
+    let tokenId = await yContract.totalSupply();
 
-    list.push(owner.address, addr1.address);
+    list = [];
+    for (const account of accounts) {
+      list.push(account.address);
+    }
+    for (let i = 0; i < 500; i++) { //generate 500 WL
+      const wallet = ethers.Wallet.createRandom()
+      list.push(wallet.address);
+    }
     console.log("list is %s", list);
+
     merkleTree = new MerkleTree(list, keccak256, { hashLeaves: true, sortPairs: true });
     root = merkleTree.getHexRoot();
     console.log("root is %s", root);
-
     await yContract.setMerkleRoot(root);
-    const proof = merkleTree.getHexProof(keccak256(owner.address));
-    console.log("proof is %s", proof);
+
+    let proof = merkleTree.getHexProof(keccak256(accounts[0].address));
+    console.log("owner proof is %s", proof);
 
     expect(
       await yContract.paidMint(1, proof, {
@@ -49,7 +56,56 @@ describe("Y2123 Contract", function () {
       })
     )
       .to.emit(yContract, "Transfer")
-      .withArgs(ethers.constants.AddressZero, owner.address, tokenId);
+      .withArgs(ethers.constants.AddressZero, accounts[0].address, tokenId);
+
+    proof = merkleTree.getHexProof(keccak256(accounts[1].address));
+    console.log("addr1 proof is %s", proof);
+    tokenId = await yContract.totalSupply();
+
+    expect(
+      await yContract.connect(accounts[1]).paidMint(1, proof, {
+        value: nftPrice,
+      })
+    )
+      .to.emit(yContract, "Transfer")
+      .withArgs(ethers.constants.AddressZero, accounts[1].address, tokenId);
+  });
+
+  it("Presale minting with invalid proof", async () => {
+    await yContract.toggleSale();
+    const nftPrice = await yContract.mintPrice();
+    let tokenId = await yContract.totalSupply();
+
+    list = [];
+    for (let i = 0; i < 500; i++) { //generate 500 WL
+      const wallet = ethers.Wallet.createRandom()
+      list.push(wallet.address);
+    }
+    console.log("list is %s", list);
+
+    merkleTree = new MerkleTree(list, keccak256, { hashLeaves: true, sortPairs: true });
+    root = merkleTree.getHexRoot();
+    console.log("root is %s", root);
+    await yContract.setMerkleRoot(root);
+
+    let proof = merkleTree.getHexProof(keccak256(accounts[0].address));
+    console.log("owner proof is %s", proof);
+
+    await expect(
+      yContract.paidMint(1, proof, {
+        value: nftPrice,
+      })
+    ).to.be.revertedWith('You are not on the whitelist');
+
+    proof = merkleTree.getHexProof(keccak256(accounts[1].address));
+    console.log("addr1 proof is %s", proof);
+    tokenId = await yContract.totalSupply();
+
+    await expect(
+      yContract.connect(accounts[1]).paidMint(1, proof, {
+        value: nftPrice,
+      })
+    ).to.be.revertedWith('You are not on the whitelist');
   });
 
   it("Public sale minting", async () => {
@@ -64,6 +120,6 @@ describe("Y2123 Contract", function () {
       })
     )
       .to.emit(yContract, "Transfer")
-      .withArgs(ethers.constants.AddressZero, owner.address, tokenId);
+      .withArgs(ethers.constants.AddressZero, accounts[0].address, tokenId);
   });
 });

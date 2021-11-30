@@ -80,7 +80,7 @@ contract Y2123 is ERC721, ERC721Enumerable, Ownable, ReentrancyGuard {
 
   function setMaxReserveMint(uint256 newMaxReserveMint) external onlyOwner {
     if (MAX_RESERVE_MINT != newMaxReserveMint) {
-      require(newMaxReserveMint >= reserveMintCount, "Value lower reserve minted");
+      require(newMaxReserveMint >= reserveMintCount, "Value lower then reserve minted");
       MAX_RESERVE_MINT = newMaxReserveMint;
     }
   }
