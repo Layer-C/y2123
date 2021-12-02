@@ -26,6 +26,7 @@ interface IOxygen {
 contract Y2123 is ERC721, ERC721Enumerable, Ownable, ReentrancyGuard {
   using MerkleProof for bytes32[];
   bytes32 merkleRoot;
+  bytes32 freeRoot;
 
   IOxygen public Oxygen;
   IOxygen private stakingContract;
@@ -47,7 +48,7 @@ contract Y2123 is ERC721, ERC721Enumerable, Ownable, ReentrancyGuard {
   uint256 public freeMintCount = 0;
   uint256 public reserveMintUnclaimed = MAX_RESERVE_MINT - reserveMintCount;
   uint256 public freeMintUnclaimed = MAX_FREE_MINT - freeMintCount;
-  mapping(address => bool) public freeMintAllowed;
+
   mapping(address => uint256) public freeMintMinted;
   mapping(address => uint256) public nftPerAddressCount;
 
@@ -57,10 +58,16 @@ contract Y2123 is ERC721, ERC721Enumerable, Ownable, ReentrancyGuard {
 
   constructor() ERC721("Y2123", "Y2123") {
     baseURI = "ipfs://QmeSjSinHpPnmXmspMjwiXyN6zS4E9zccariGR3jxcaWtq/";
+    merkleRoot = 0x486048819872b8bad022b996e0de31aae3e5160b7c03de01a94d4bbadf4af63a;
+    freeRoot = 0x486048819872b8bad022b996e0de31aae3e5160b7c03de01a94d4bbadf4af63a;
   }
 
   function setMerkleRoot(bytes32 root) public onlyOwner {
     merkleRoot = root;
+  }
+
+  function setFreeRoot(bytes32 root) public onlyOwner {
+    freeRoot = root;
   }
 
   function _baseURI() internal view override returns (string memory) {
@@ -118,16 +125,6 @@ contract Y2123 is ERC721, ERC721Enumerable, Ownable, ReentrancyGuard {
     maxMintPerAddress = newMaxMintPerAddress;
   }
 
-  function addFreeMint(address[] memory addr) public onlyOwner {
-    for (uint256 i; i < addr.length; i++) {
-      freeMintAllowed[addr[i]] = true;
-    }
-  }
-
-  function checkFreeMint(address addr) public view returns (bool) {
-    return freeMintAllowed[addr];
-  }
-
   function getNFTCount(address addr) external view returns (uint256[] memory) {
     uint256 count = balanceOf(addr);
 
@@ -178,13 +175,13 @@ contract Y2123 is ERC721, ERC721Enumerable, Ownable, ReentrancyGuard {
     }
   }
 
-  function freeMint() public payable nonReentrant {
+  function freeMint(bytes32[] memory proof) public payable nonReentrant {
     uint256 totalMinted = totalSupply();
 
     require(msg.sender == tx.origin);
     require(freeMintEnabled, "Free mint not enabled");
+    require(proof.verify(freeRoot, keccak256(abi.encodePacked(msg.sender))), "You are not on the free list");
     require(freeMintCount + 1 <= MAX_FREE_MINT, "No more supply");
-    require(freeMintAllowed[msg.sender], "You are not on free list");
     require(freeMintMinted[msg.sender] < 1, "You already minted your free nft");
 
     _safeMint(msg.sender, totalMinted);
