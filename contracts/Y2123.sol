@@ -13,23 +13,29 @@ https://y2123.com
 */
 
 import "@openzeppelin/contracts/access/Ownable.sol";
-import "@openzeppelin/contracts/token/ERC721/extensions/ERC721Enumerable.sol";
+import "@openzeppelin/contracts/security/Pausable.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
+import "@openzeppelin/contracts/token/ERC721/extensions/ERC721Enumerable.sol";
 import {MerkleProof} from "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
+import "./IY2123.sol";
 
-interface IOxygen {
-  function transferTokens(address _from, address _to) external;
+contract Y2123 is IY2123, ERC721Enumerable, Ownable, Pausable, ReentrancyGuard {
+  struct LastWrite {
+    uint64 time;
+    uint64 blockNum;
+  }
 
-  function burn(address user, uint256 amount) external;
-}
+  // Tracks the last block and timestamp that a caller has written to state.
+  // Disallow some access to functions if they occur while a change is being written.
+  mapping(address => LastWrite) private lastWriteAddress;
+  mapping(uint256 => LastWrite) private lastWriteToken;
 
-contract Y2123 is ERC721, ERC721Enumerable, Ownable, ReentrancyGuard {
+  // address => allowedToCallFunctions
+  mapping(address => bool) private admins;
+
   using MerkleProof for bytes32[];
   bytes32 merkleRoot;
   bytes32 freeRoot;
-
-  IOxygen public Oxygen;
-  IOxygen private stakingContract;
 
   uint256 public constant MAX_SUPPLY_GENESIS = 500;
   uint256 public MAX_SUPPLY = 500;
@@ -52,9 +58,21 @@ contract Y2123 is ERC721, ERC721Enumerable, Ownable, ReentrancyGuard {
   mapping(address => uint256) public freeMintMinted;
   mapping(address => uint256) public nftPerAddressCount;
 
-  //event Mint(address owner, uint256 tokenId);
+  event Minted(uint256 indexed id);
+  event Stolen(uint256 indexed id);
+  event Burned(uint256 indexed id);
   event PresaleActive(bool active);
   event SaleActive(bool active);
+
+  modifier blockIfChangingAddress() {
+    require(admins[_msgSender()] || lastWriteAddress[tx.origin].blockNum < block.number, "lastWriteAddress in future");
+    _;
+  }
+
+  modifier blockIfChangingToken(uint256 tokenId) {
+    require(admins[_msgSender()] || lastWriteToken[tokenId].blockNum < block.number, "lastWriteToken in future");
+    _;
+  }
 
   constructor() ERC721("Y2123", "Y2123") {
     baseURI = "ipfs://QmeSjSinHpPnmXmspMjwiXyN6zS4E9zccariGR3jxcaWtq/";
@@ -136,13 +154,6 @@ contract Y2123 is ERC721, ERC721Enumerable, Ownable, ReentrancyGuard {
     return tokens;
   }
 
-  function getMintOxygenCost(uint256 tokenId) public view returns (uint256) {
-    if (tokenId <= MAX_SUPPLY_GENESIS) return 0;
-    if (tokenId <= (MAX_SUPPLY * 2) / 5) return 20000 ether;
-    if (tokenId <= (MAX_SUPPLY * 4) / 5) return 40000 ether;
-    return 80000 ether;
-  }
-
   // reserve NFT's for core team
   function reserve(uint256 amount) public onlyOwner {
     uint256 totalMinted = totalSupply();
@@ -210,61 +221,155 @@ contract Y2123 is ERC721, ERC721Enumerable, Ownable, ReentrancyGuard {
     }
   }
 
-  function setOxygen(address _oxygen) external onlyOwner {
-    Oxygen = IOxygen(_oxygen);
-  }
-
   function withdrawAll() external onlyOwner {
     require(payable(msg.sender).send(address(this).balance));
   }
 
-  function supportsInterface(bytes4 interfaceId) public view virtual override(ERC721, ERC721Enumerable) returns (bool) {
-    return super.supportsInterface(interfaceId);
+  function getTokenWriteBlock(uint256 tokenId) external view override returns (uint64) {
+    require(admins[_msgSender()], "Admins only!");
+    return lastWriteToken[tokenId].blockNum;
   }
 
-  function _beforeTokenTransfer(
-    address from,
-    address to,
-    uint256 tokenId
-  ) internal override(ERC721, ERC721Enumerable) {
-    super._beforeTokenTransfer(from, to, tokenId);
+  function getAddressWriteBlock(address addr) external view override returns (uint64) {
+    require(admins[_msgSender()], "Admins only!");
+    return lastWriteAddress[addr].blockNum;
+  }
+
+  /**
+   * Mint a token - any payment / game logic should be handled in the game contract.
+   * This will just generate random traits and mint a token to a designated address.
+   */
+  function mint(address recipient) external override whenNotPaused {
+    uint256 minted = totalSupply();
+
+    require(admins[_msgSender()], "Admins only!");
+    require(minted + 1 <= (MAX_SUPPLY - reserveMintUnclaimed - freeMintUnclaimed), "All tokens minted");
+    minted++;
+    emit Minted(minted);
+    if (tx.origin != recipient) {
+      emit Stolen(minted);
+    }
+    _safeMint(recipient, minted);
+  }
+
+  /**
+   * Burn a token - any game logic should be handled before this function.
+   */
+  function burn(uint256 tokenId) external override whenNotPaused {
+    require(admins[_msgSender()], "Admins only!");
+    require(ownerOf(tokenId) == tx.origin, "Oops you don't own that");
+    emit Burned(tokenId);
+    _burn(tokenId);
+  }
+
+  function updateOriginAccess(uint16[] memory tokenIds) external override {
+    require(admins[_msgSender()], "Admins only!");
+    uint64 blockNum = uint64(block.number);
+    uint64 time = uint64(block.timestamp);
+    lastWriteAddress[tx.origin] = LastWrite(time, blockNum);
+    for (uint256 i = 0; i < tokenIds.length; i++) {
+      lastWriteToken[tokenIds[i]] = LastWrite(time, blockNum);
+    }
   }
 
   function transferFrom(
     address from,
     address to,
     uint256 tokenId
-  ) public override {
-    if (msg.sender != address(stakingContract)) {
-      require(_isApprovedOrOwner(msg.sender, tokenId), "transfer not owner nor approved");
+  ) public virtual override(ERC721, IERC721) blockIfChangingToken(tokenId) {
+    // allow admin contracts to be send without approval
+    if (!admins[_msgSender()]) {
+      require(_isApprovedOrOwner(_msgSender(), tokenId), "ERC721: transfer caller is not owner nor approved");
     }
-    Oxygen.transferTokens(from, to);
-    nftPerAddressCount[from]--;
-    nftPerAddressCount[to]++;
-    //ERC721.transferFrom(from, to, tokenId);
     _transfer(from, to, tokenId);
+  }
+
+  /** ADMIN */
+
+  /**
+   * enables owner to pause / unpause minting
+   */
+  function setPaused(bool _paused) external onlyOwner {
+    if (_paused) _pause();
+    else _unpause();
+  }
+
+  /**
+   * enables an address to mint / burn
+   * @param addr the address to enable
+   */
+  function addAdmin(address addr) external onlyOwner {
+    admins[addr] = true;
+  }
+
+  /**
+   * disables an address from minting / burning
+   * @param addr the address to disbale
+   */
+  function removeAdmin(address addr) external onlyOwner {
+    admins[addr] = false;
+  }
+
+  /** OVERRIDES FOR SAFETY */
+
+  function tokenOfOwnerByIndex(address owner, uint256 index) public view virtual override(ERC721Enumerable, IERC721Enumerable) blockIfChangingAddress returns (uint256) {
+    // Y U checking on this address in the same block it's being modified... hmmmm
+    require(admins[_msgSender()] || lastWriteAddress[owner].blockNum < block.number, "hmmmm what doing?");
+    uint256 tokenId = super.tokenOfOwnerByIndex(owner, index);
+    require(admins[_msgSender()] || lastWriteToken[tokenId].blockNum < block.number, "hmmmm what doing?");
+    return tokenId;
+  }
+
+  function balanceOf(address owner) public view virtual override(ERC721, IERC721) blockIfChangingAddress returns (uint256) {
+    // Y U checking on this address in the same block it's being modified... hmmmm
+    require(admins[_msgSender()] || lastWriteAddress[owner].blockNum < block.number, "hmmmm what doing?");
+    return super.balanceOf(owner);
+  }
+
+  function ownerOf(uint256 tokenId) public view virtual override(ERC721, IERC721) blockIfChangingAddress blockIfChangingToken(tokenId) returns (address) {
+    address addr = super.ownerOf(tokenId);
+    // Y U checking on this address in the same block it's being modified... hmmmm
+    require(admins[_msgSender()] || lastWriteAddress[addr].blockNum < block.number, "hmmmm what doing?");
+    return addr;
+  }
+
+  function tokenByIndex(uint256 index) public view virtual override(ERC721Enumerable, IERC721Enumerable) returns (uint256) {
+    uint256 tokenId = super.tokenByIndex(index);
+    // NICE TRY TOAD DRAGON
+    require(admins[_msgSender()] || lastWriteToken[tokenId].blockNum < block.number, "hmmmm what doing?");
+    return tokenId;
+  }
+
+  function approve(address to, uint256 tokenId) public virtual override(ERC721, IERC721) blockIfChangingToken(tokenId) {
+    super.approve(to, tokenId);
+  }
+
+  function getApproved(uint256 tokenId) public view virtual override(ERC721, IERC721) blockIfChangingToken(tokenId) returns (address) {
+    return super.getApproved(tokenId);
+  }
+
+  function setApprovalForAll(address operator, bool approved) public virtual override(ERC721, IERC721) blockIfChangingAddress {
+    super.setApprovalForAll(operator, approved);
+  }
+
+  function isApprovedForAll(address owner, address operator) public view virtual override(ERC721, IERC721) blockIfChangingAddress returns (bool) {
+    return super.isApprovedForAll(owner, operator);
   }
 
   function safeTransferFrom(
     address from,
     address to,
     uint256 tokenId
-  ) public override {
-    Oxygen.transferTokens(from, to);
-    nftPerAddressCount[from]--;
-    nftPerAddressCount[to]++;
-    ERC721.safeTransferFrom(from, to, tokenId);
+  ) public virtual override(ERC721, IERC721) blockIfChangingToken(tokenId) {
+    super.safeTransferFrom(from, to, tokenId);
   }
 
   function safeTransferFrom(
     address from,
     address to,
     uint256 tokenId,
-    bytes memory data
-  ) public override {
-    Oxygen.transferTokens(from, to);
-    nftPerAddressCount[from]--;
-    nftPerAddressCount[to]++;
-    ERC721.safeTransferFrom(from, to, tokenId, data);
+    bytes memory _data
+  ) public virtual override(ERC721, IERC721) blockIfChangingToken(tokenId) {
+    super.safeTransferFrom(from, to, tokenId, _data);
   }
 }
