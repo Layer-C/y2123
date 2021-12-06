@@ -23,7 +23,8 @@ async function main() {
 
     // Get all token IDs of the owner
     let tokens = await contract.getNFTCount(owner.address)
-    console.log("Owner has tokens: ", tokens);
+    let balance = await contract.balanceOf(owner.address)
+    console.log("Owner has tokens: %s balance: %s", tokens, balance);
 }
 
 main()
