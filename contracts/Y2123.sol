@@ -141,7 +141,7 @@ contract Y2123 is IY2123, ERC721Enumerable, Ownable, Pausable, ReentrancyGuard {
     maxMintPerAddress = newMaxMintPerAddress;
   }
 
-  function getNFTCount(address addr) external view returns (uint256[] memory) {
+  function getTokenIDs(address addr) external view returns (uint256[] memory) {
     uint256 count = balanceOf(addr);
 
     uint256[] memory tokens = new uint256[](count);
