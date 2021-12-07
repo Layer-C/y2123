@@ -40,7 +40,7 @@ contract Y2123 is IY2123, ERC721Enumerable, Ownable, Pausable, ReentrancyGuard {
 
   string private baseURI;
   uint256 public mintPrice = 0.063 ether;
-  uint256 public maxMintPerTx = 10;
+  uint256 public maxMintPerTx = 5;
   uint256 public maxMintPerAddress = 1;
   bool public presaleEnabled = true;
   bool public saleEnabled = false;
@@ -52,6 +52,7 @@ contract Y2123 is IY2123, ERC721Enumerable, Ownable, Pausable, ReentrancyGuard {
   uint256 public freeMintUnclaimed = MAX_FREE_MINT - freeMintCount;
 
   mapping(address => uint256) public freeMintMinted;
+  mapping(address => uint256) public whitelistMinted;
   mapping(address => uint256) public addressMinted;
 
   event Minted(uint256 indexed id);
@@ -183,6 +184,7 @@ contract Y2123 is IY2123, ERC721Enumerable, Ownable, Pausable, ReentrancyGuard {
     }
   }
 
+  // ONLY 1 free mint per address thru all collections
   function freeMint(bytes32[] memory proof) public payable nonReentrant {
     uint256 totalMinted = totalSupply();
 
@@ -204,17 +206,22 @@ contract Y2123 is IY2123, ERC721Enumerable, Ownable, Pausable, ReentrancyGuard {
 
     require(msg.sender == tx.origin);
     require(saleEnabled, "Sale not enabled");
+    require(amount * mintPrice <= msg.value, "More ETH please");
+    require(amount + totalMinted <= (MAX_SUPPLY - reserveMintUnclaimed - freeMintUnclaimed), "Please try minting with less, not enough supply!");
+
     if (presaleEnabled == true) {
       require(proof.verify(merkleRoot, keccak256(abi.encodePacked(msg.sender))), "You are not on the whitelist");
+      require(amount + whitelistMinted[msg.sender] <= maxMintPerAddress, "Exceed max mint per address for whitelist, try minting with less");
+    } else {
+      require(amount <= maxMintPerTx, "Exceed max mint per transaction");
     }
-    require(amount <= maxMintPerTx, "Exceed max mint per tx");
-    require(amount + addressMinted[msg.sender] <= maxMintPerAddress, "Exceed max mint per address");
-    require(amount * mintPrice <= msg.value, "More ETH please");
-    require(amount + totalMinted <= (MAX_SUPPLY - reserveMintUnclaimed - freeMintUnclaimed), "Please try minting with less");
 
     for (uint256 i; i < amount; i++) {
       _safeMint(msg.sender, totalMinted + i);
       addressMinted[msg.sender]++;
+      if (presaleEnabled == true) {
+        whitelistMinted[msg.sender]++;
+      }
     }
   }
 
@@ -237,7 +244,7 @@ contract Y2123 is IY2123, ERC721Enumerable, Ownable, Pausable, ReentrancyGuard {
 
     require(admins[_msgSender()], "Admins only!");
     require(minted + 1 <= (MAX_SUPPLY - reserveMintUnclaimed - freeMintUnclaimed), "All tokens minted");
-    minted++;
+    //minted++;
     emit Minted(minted);
     if (tx.origin != recipient) {
       emit MintedNonTxOrigin(recipient, minted);

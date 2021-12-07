@@ -3,13 +3,22 @@ const { MerkleTree } = require('merkletreejs');
 const keccak256 = require('keccak256');
 
 describe("Y2123 Contract", function () {
-  let yContract, accounts, merkleTree, root;
+  let yContract, oContract, cContract, accounts, merkleTree, root;
   let list = [];
 
   beforeEach(async () => {
-    const contract = await ethers.getContractFactory("Y2123");
+    let contract = await ethers.getContractFactory("Y2123");
     yContract = await contract.deploy();
     await yContract.deployed();
+
+    contract = await ethers.getContractFactory("Oxygen");
+    oContract = await contract.deploy();
+    await oContract.deployed();
+
+    contract = await ethers.getContractFactory("Clans");
+    cContract = await contract.deploy();
+    await cContract.deployed();
+    await cContract.setContracts(yContract.address, oContract.address)
 
     accounts = await ethers.getSigners();
   });
@@ -33,13 +42,13 @@ describe("Y2123 Contract", function () {
     const nftPrice = await yContract.mintPrice();
     const tokenId = await yContract.totalSupply();
 
-    expect(
-      await yContract.paidMint(1, [], {
-        value: nftPrice,
-      })
-    )
+    expect(await yContract.paidMint(1, [], { value: nftPrice, }))
       .to.emit(yContract, "Transfer")
       .withArgs(ethers.constants.AddressZero, accounts[0].address, tokenId);
+
+    const minted = await cContract.printY2123();
+    expect(minted).to.equal(1);
+    console.log("y2123 totalSupply is %s", minted);
   });
 
   it("Presale minting with working proof", async () => {
@@ -72,6 +81,9 @@ describe("Y2123 Contract", function () {
     )
       .to.emit(yContract, "Transfer")
       .withArgs(ethers.constants.AddressZero, accounts[0].address, tokenId);
+
+    await expect(yContract.paidMint(1, proof, { value: nftPrice, }))
+      .to.be.revertedWith('Exceed max mint per address for whitelist, try minting with less');
 
     proof = merkleTree.getHexProof(keccak256(accounts[1].address));
     console.log("addr1 proof is %s", proof);

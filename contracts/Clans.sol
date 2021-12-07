@@ -8,13 +8,16 @@ import "@openzeppelin/contracts/utils/math/SafeMath.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 import "@openzeppelin/contracts/utils/Counters.sol";
+import "./IOxygen.sol";
+import "./IY2123.sol";
 
 contract Clans is EIP712, Ownable {
   using EnumerableSet for EnumerableSet.AddressSet;
   using EnumerableSet for EnumerableSet.UintSet;
   using Counters for Counters.Counter;
 
-  IERC20 goldz = IERC20(0x7bE647634A942e73F8492d15Ae492D867Ce5245c);
+  IOxygen public oxgnToken;
+  IY2123 public y2123NFT;
 
   struct StakedContract {
     bool active;
@@ -47,6 +50,11 @@ contract Clans is EIP712, Ownable {
   }
 
   constructor() EIP712("Clans", "1.0") {}
+
+  function setContracts(address _y2123NFT, address _oxgnToken) external onlyOwner {
+    y2123NFT = IY2123(_y2123NFT);
+    oxgnToken = IOxygen(_oxgnToken);
+  }
 
   function stake(address contractAddress, uint256[] memory tokenIds) external incrementNonce {
     StakedContract storage _contract = contracts[contractAddress];
@@ -112,7 +120,7 @@ contract Clans is EIP712, Ownable {
 
   function withdrawGoldz(uint256 amount, bytes calldata signature) external {
     require(_signerAddress == recoverAddress(msg.sender, amount, accountNonce(msg.sender), signature), "invalid signature");
-    goldz.transferFrom(address(this), msg.sender, amount);
+    oxgnToken.transferFrom(address(this), msg.sender, amount);
     addressToNonce[msg.sender].increment();
     accountToLastWithdraw[msg.sender] = block.timestamp;
     accountToLastWithdrawAmount[msg.sender] = amount;
@@ -163,5 +171,9 @@ contract Clans is EIP712, Ownable {
   ) external returns (bytes4) {
     require(operator == address(this), "token must be staked over stake method");
     return bytes4(keccak256("onERC721Received(address,address,uint256,bytes)"));
+  }
+
+  function printY2123() public view returns (uint256) {
+    return y2123NFT.totalSupply();
   }
 }
