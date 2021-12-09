@@ -97,6 +97,7 @@ contract Y2123 is IY2123, ERC721Enumerable, Ownable, Pausable, ReentrancyGuard {
   function setMaxSupply(uint256 newMaxSupply) external onlyOwner {
     if (MAX_SUPPLY != newMaxSupply) {
       require(newMaxSupply >= totalSupply(), "Value lower than total supply");
+      require(newMaxSupply >= MAX_RESERVE_MINT + MAX_FREE_MINT, "Value lower than total reserve & free mints");
       MAX_SUPPLY = newMaxSupply;
     }
   }

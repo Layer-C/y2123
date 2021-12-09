@@ -26,16 +26,50 @@ describe("Y2123 Contract", function () {
   it("Should have basic info right", async function () {
     expect(await yContract.name()).to.equal("Y2123");
     expect(await yContract.symbol()).to.equal("Y2123");
-    expect(await yContract.MAX_SUPPLY()).to.equal(500);
     expect(await yContract.owner()).to.equal(await accounts[0].address);
-    //expect(await yContract.mintPrice()).to.equal(0.063);
     expect(await yContract.maxMintPerAddress()).to.equal(1);
-    //expect(await yContract.getTokenIDs(await accounts[0].address)).to.equal([]);
+    //expect(await yContract.getTokenIDs(await accounts[0].address)).to.equal(new Array());
+
+    expect(await yContract.MAX_SUPPLY()).to.equal(500);
+    await yContract.setMaxSupply(10000);
+    expect(await yContract.MAX_SUPPLY()).to.equal(10000);
+
+    expect(await yContract.MAX_RESERVE_MINT()).to.equal(50);
+    await yContract.setMaxReserveMint(100);
+    expect(await yContract.MAX_RESERVE_MINT()).to.equal(100);
+
+    expect(await yContract.MAX_FREE_MINT()).to.equal(50);
+    await yContract.setMaxFreeMint(200);
+    expect(await yContract.MAX_FREE_MINT()).to.equal(200);
+
+    expect(await yContract.mintPrice()).to.equal(BigInt(63000000000000000));
+    await yContract.setMintPrice(BigInt(61000000000000000));
+    expect(await yContract.mintPrice()).to.equal(BigInt(61000000000000000));
+
+    expect(await yContract.freeMintEnabled()).to.equal(false);
+    await yContract.toggleFreeMint();
+    expect(await yContract.freeMintEnabled()).to.equal(true);
+
+    expect(await yContract.maxMintPerTx()).to.equal(5);
+    await yContract.setMaxMintPerTx(3);
+    expect(await yContract.maxMintPerTx()).to.equal(3);
+
+    expect(await yContract.maxMintPerAddress()).to.equal(1);
+    await yContract.setMaxMintPerAddress(2);
+    expect(await yContract.maxMintPerAddress()).to.equal(2);
+
+    await expect(yContract.toggleSale())
+      .to.emit(yContract, "SaleActive")
+      .withArgs(true);
+
+    await expect(yContract.togglePresale())
+      .to.emit(yContract, "PresaleActive")
+      .withArgs(false);
   });
 
   it("Public sale minting", async () => {
     const nftPrice = await yContract.mintPrice();
-    const tokenId = await yContract.totalSupply();
+    let tokenId = await yContract.totalSupply();
     console.log("nftPrice is %s", nftPrice);
 
     await expect(yContract.paidMint(1, [], { value: nftPrice, }))
@@ -44,23 +78,42 @@ describe("Y2123 Contract", function () {
     await yContract.toggleSale();
     await yContract.togglePresale();
 
-    await expect(yContract.paidMint(2, [], { value: nftPrice, }))
+    await expect(yContract.paidMint(2, [], { value: BigInt(nftPrice), }))
       .to.be.revertedWith('More ETH please');
 
-    expect(await yContract.paidMint(1, [], { value: nftPrice, }))
+    await expect(yContract.paidMint(2, [], { value: BigInt(nftPrice * 2), }))
       .to.emit(yContract, "Transfer")
       .withArgs(ethers.constants.AddressZero, accounts[0].address, tokenId);
 
     const minted = await cContract.printY2123();
-    expect(minted).to.equal(1);
+    expect(minted).to.equal(2);
     console.log("y2123 totalSupply is %s", minted);
 
     const maxMintPerTxPlus1 = await yContract.maxMintPerTx() + 1;
     await expect(yContract.paidMint(maxMintPerTxPlus1, [], { value: BigInt(nftPrice * maxMintPerTxPlus1), }))
       .to.be.revertedWith('Exceed max mint per transaction');
+
+    await expect(yContract.setMaxSupply(1))
+      .to.be.revertedWith('Value lower than total supply');
+
+    await expect(yContract.setMaxSupply(99))
+      .to.be.revertedWith('Value lower than total reserve & free mints');
+
+    await yContract.setMaxSupply(103);
+
+    tokenId = await yContract.totalSupply();
+    await expect(yContract.paidMint(1, [], { value: nftPrice, }))
+      .to.emit(yContract, "Transfer")
+      .withArgs(ethers.constants.AddressZero, accounts[0].address, tokenId);
+
+    await expect(yContract.paidMint(1, [], { value: nftPrice, }))
+      .to.be.revertedWith('Please try minting with less, not enough supply!');
+
+    await yContract.setBaseURI("ipfs://Test123/");
+    expect(await yContract.tokenURI(0)).to.equal("ipfs://Test123/0");
   });
 
-  it("Presale minting with working proof", async () => {
+  it("Presale minting", async () => {
     await yContract.toggleSale();
     const nftPrice = await yContract.mintPrice();
     let tokenId = await yContract.totalSupply();
@@ -69,7 +122,7 @@ describe("Y2123 Contract", function () {
     for (const account of accounts) {
       list.push(account.address);
     }
-    for (let i = 0; i < 500; i++) { //generate 500 WL
+    for (let i = 0; i < 20; i++) { //generate 20 WL
       const wallet = ethers.Wallet.createRandom()
       list.push(wallet.address);
     }
@@ -81,7 +134,7 @@ describe("Y2123 Contract", function () {
     await yContract.setMerkleRoot(root);
 
     let proof = merkleTree.getHexProof(keccak256(accounts[0].address));
-    //console.log("owner proof is %s", proof);
+    console.log("owner proof is %s", proof);
 
     expect(await yContract.paidMint(1, proof, { value: nftPrice, }))
       .to.emit(yContract, "Transfer")
@@ -97,16 +150,7 @@ describe("Y2123 Contract", function () {
     expect(await yContract.connect(accounts[1]).paidMint(1, proof, { value: nftPrice, }))
       .to.emit(yContract, "Transfer")
       .withArgs(ethers.constants.AddressZero, accounts[1].address, tokenId);
-  });
 
-  it("Presale minting with invalid proof", async () => {
-    await yContract.toggleSale();
-    const nftPrice = await yContract.mintPrice();
-
-    list = [];
-    for (const account of accounts) {
-      list.push(account.address);
-    }
     //Inject metamask Test2 account at the top
     list[0] = "0x043f292c37e1De0B53951d1e478b59BC5358F359";
     list[1] = "0x043f292c37e1De0B53951d1e478b59BC5358F359";
@@ -117,7 +161,7 @@ describe("Y2123 Contract", function () {
     console.log("root is %s", root);
     await yContract.setMerkleRoot(root);
 
-    let proof = merkleTree.getHexProof(keccak256(accounts[0].address));
+    proof = merkleTree.getHexProof(keccak256(accounts[0].address));
     console.log("owner proof is %s", proof);
 
     await expect(yContract.paidMint(1, proof, { value: nftPrice, }))
