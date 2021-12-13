@@ -23,12 +23,11 @@ describe("Y2123 Contract", function () {
     accounts = await ethers.getSigners();
   });
 
-  it("Should have basic info right", async function () {
+  it("Should have basic info right", async () => {
     expect(await yContract.name()).to.equal("Y2123");
     expect(await yContract.symbol()).to.equal("Y2123");
-    expect(await yContract.owner()).to.equal(await accounts[0].address);
+    expect(await yContract.owner()).to.equal(accounts[0].address);
     expect(await yContract.maxMintPerAddress()).to.equal(1);
-    //expect(await yContract.getTokenIDs(await accounts[0].address)).to.equal(new Array());
 
     expect(await yContract.MAX_SUPPLY()).to.equal(500);
     await yContract.setMaxSupply(10000);
@@ -50,19 +49,19 @@ describe("Y2123 Contract", function () {
     await yContract.toggleFreeMint();
     expect(await yContract.freeMintEnabled()).to.equal(true);
 
-    expect(await yContract.maxMintPerTx()).to.equal(5);
-    await yContract.setMaxMintPerTx(3);
     expect(await yContract.maxMintPerTx()).to.equal(3);
+    await yContract.setMaxMintPerTx(4);
+    expect(await yContract.maxMintPerTx()).to.equal(4);
 
     expect(await yContract.maxMintPerAddress()).to.equal(1);
     await yContract.setMaxMintPerAddress(2);
     expect(await yContract.maxMintPerAddress()).to.equal(2);
 
-    await expect(yContract.toggleSale())
+    expect(await yContract.toggleSale())
       .to.emit(yContract, "SaleActive")
       .withArgs(true);
 
-    await expect(yContract.togglePresale())
+    expect(await yContract.togglePresale())
       .to.emit(yContract, "PresaleActive")
       .withArgs(false);
   });
@@ -91,7 +90,7 @@ describe("Y2123 Contract", function () {
 
     const maxMintPerTxPlus1 = await yContract.maxMintPerTx() + 1;
     await expect(yContract.paidMint(maxMintPerTxPlus1, [], { value: BigInt(nftPrice * maxMintPerTxPlus1), }))
-      .to.be.revertedWith('Exceed max mint per transaction');
+      .to.be.revertedWith('Exceeded max mint per transaction');
 
     await expect(yContract.setMaxSupply(1))
       .to.be.revertedWith('Value lower than total supply');
@@ -110,7 +109,7 @@ describe("Y2123 Contract", function () {
       .to.be.revertedWith('Please try minting with less, not enough supply!');
 
     await yContract.setBaseURI("ipfs://Test123/");
-    expect(await yContract.tokenURI(0)).to.equal("ipfs://Test123/0");
+    expect(await yContract.tokenURI(1)).to.equal("ipfs://Test123/1");
   });
 
   it("Presale minting", async () => {
@@ -136,18 +135,18 @@ describe("Y2123 Contract", function () {
     let proof = merkleTree.getHexProof(keccak256(accounts[0].address));
     console.log("owner proof is %s", proof);
 
-    expect(await yContract.paidMint(1, proof, { value: nftPrice, }))
+    await expect(yContract.paidMint(1, proof, { value: nftPrice, }))
       .to.emit(yContract, "Transfer")
       .withArgs(ethers.constants.AddressZero, accounts[0].address, tokenId);
 
     await expect(yContract.paidMint(1, proof, { value: nftPrice, }))
-      .to.be.revertedWith('Exceed max mint per address for whitelist, try minting with less');
+      .to.be.revertedWith('Exceeded max mint per address for whitelist, try minting with less');
 
     proof = merkleTree.getHexProof(keccak256(accounts[1].address));
     console.log("addr1 proof is %s", proof);
     tokenId = await yContract.totalSupply();
 
-    expect(await yContract.connect(accounts[1]).paidMint(1, proof, { value: nftPrice, }))
+    await expect(yContract.connect(accounts[1]).paidMint(1, proof, { value: nftPrice, }))
       .to.emit(yContract, "Transfer")
       .withArgs(ethers.constants.AddressZero, accounts[1].address, tokenId);
 
@@ -178,6 +177,9 @@ describe("Y2123 Contract", function () {
   });
 
   it("Free minting with proof testing", async () => {
+    await expect(yContract.connect(accounts[0]).freeMint([]))
+      .to.be.revertedWith('Free mint not enabled');
+
     await yContract.toggleFreeMint();
     let tokenId = await yContract.totalSupply();
 
@@ -191,19 +193,124 @@ describe("Y2123 Contract", function () {
 
     merkleTree = new MerkleTree(list, keccak256, { hashLeaves: true, sortPairs: true });
     root = merkleTree.getHexRoot();
-    console.log("root is %s", root);
+    //console.log("root is %s", root);
     await yContract.setFreeRoot(root);
 
     let proof = merkleTree.getHexProof(keccak256(accounts[0].address));
-    console.log("addr1 proof is %s", proof);
+    //console.log("addr1 proof is %s", proof);
     await expect(yContract.connect(accounts[0]).freeMint(proof))
       .to.be.revertedWith('You are not on the free list');
 
     let proof2 = merkleTree.getHexProof(keccak256(accounts[1].address));
-    console.log("addr2 proof is %s", proof2);
+    //console.log("addr2 proof is %s", proof2);
     await expect(yContract.connect(accounts[1]).freeMint(proof2))
       .to.emit(yContract, "Transfer")
       .withArgs(ethers.constants.AddressZero, accounts[1].address, tokenId);
+
+    await expect(yContract.connect(accounts[1]).freeMint(proof2))
+      .to.be.revertedWith('You already minted your free nft');
+
+    await yContract.setMaxFreeMint(1);
+
+    let proof3 = merkleTree.getHexProof(keccak256(accounts[2].address));
+    await expect(yContract.connect(accounts[2]).freeMint(proof3))
+      .to.be.revertedWith('No more supply');
+
+    await yContract.setMaxFreeMint(2);
+
+    tokenId = await yContract.totalSupply();
+    await expect(yContract.connect(accounts[2]).freeMint(proof3))
+      .to.emit(yContract, "Transfer")
+      .withArgs(ethers.constants.AddressZero, accounts[2].address, tokenId);
+
+    expect(await yContract.freeMintMinted(accounts[2].address)).to.equal(1);
+    expect(await yContract.freeMintCount()).to.equal(2);
+  });
+
+  it("Reserve minting", async () => {
+    let tokenId = await yContract.totalSupply();
+    await expect(yContract.reserve(2))
+      .to.emit(yContract, "Transfer")
+      .withArgs(ethers.constants.AddressZero, accounts[0].address, tokenId);
+
+    expect(await yContract.reserveMintCount()).to.equal(2);
+
+    //expect(await yContract.getTokenIDs(accounts[0].address)).to.equal([0, 1]);
+
+    await expect(yContract.reserve(50))
+      .to.be.revertedWith('Reserved more then available');
+
+    await yContract.setMaxReserveMint(100);
+
+    tokenId = await yContract.totalSupply();
+    await expect(yContract.reserve(50))
+      .to.emit(yContract, "Transfer")
+      .withArgs(ethers.constants.AddressZero, accounts[0].address, tokenId);
+
+    await expect(yContract.connect(accounts[1]).reserve(50))
+      .to.be.revertedWith('Ownable: caller is not the owner');
+  });
+
+  it("Airdrop minting", async () => {
+    let tokenId = await yContract.totalSupply();
+    await expect(yContract.airDrop([accounts[0].address, accounts[1].address], [10, 9]))
+      .to.emit(yContract, "Transfer")
+      .withArgs(ethers.constants.AddressZero, accounts[0].address, tokenId);
+
+    expect(await yContract.addressMinted(accounts[0].address)).to.equal(10);
+    expect(await yContract.addressMinted(accounts[1].address)).to.equal(9);
+
+    await expect(yContract.airDrop([accounts[0].address, accounts[1].address], [10]))
+      .to.be.revertedWith('Please provide equal quantities and recipients');
+
+    await expect(yContract.airDrop([accounts[0].address, accounts[1].address], [300, 300]))
+      .to.be.revertedWith('Not enough supply');
+  });
+
+  it("Testing withdrawAll", async () => {
+    const nftPrice = await yContract.mintPrice();
+    let tokenId = await yContract.totalSupply();
+
+    await yContract.toggleSale();
+    await yContract.togglePresale();
+
+    const initialBalance = parseInt(await accounts[0].getBalance());
+    console.log("initialBalance is %s", initialBalance);
+
+    await expect(yContract.connect(accounts[1]).paidMint(2, [], { value: BigInt(nftPrice * 2), }))
+      .to.emit(yContract, "Transfer")
+      .withArgs(ethers.constants.AddressZero, accounts[1].address, tokenId);
+
+    await expect(yContract.connect(accounts[1]).withdrawAll())
+      .to.be.revertedWith('Ownable: caller is not the owner');
+
+    await yContract.connect(accounts[0]).withdrawAll();
+    const currentBalance = parseInt(await accounts[0].getBalance());
+    console.log("Balance after withdrawAll is %s", currentBalance);
+
+    expect(currentBalance).to.greaterThan(initialBalance);
+  });
+
+  it("Contract minting", async () => {
+    await expect(yContract.mint(accounts[0].address))
+      .to.be.revertedWith('Pausable: paused');
+
+    await expect(yContract.setPaused(false));
+
+    await expect(yContract.mint(accounts[0].address))
+      .to.be.revertedWith('Admins only!');
+
+    await expect(yContract.addAdmin(accounts[0].address));
+
+    let tokenId = await yContract.totalSupply();
+    await expect(yContract.mint(accounts[0].address))
+      .to.emit(yContract, "Transfer")
+      .withArgs(ethers.constants.AddressZero, accounts[0].address, tokenId);
+
+    await expect(yContract.removeAdmin(accounts[0].address));
+
+    await expect(yContract.mint(accounts[0].address))
+      .to.be.revertedWith('Admins only!');
   });
 
 });

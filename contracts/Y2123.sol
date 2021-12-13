@@ -40,7 +40,7 @@ contract Y2123 is IY2123, ERC721Enumerable, Ownable, Pausable, ReentrancyGuard {
 
   string private baseURI;
   uint256 public mintPrice = 0.063 ether;
-  uint256 public maxMintPerTx = 5;
+  uint256 public maxMintPerTx = 3;
   uint256 public maxMintPerAddress = 1;
   bool public presaleEnabled = true;
   bool public saleEnabled = false;
@@ -212,9 +212,9 @@ contract Y2123 is IY2123, ERC721Enumerable, Ownable, Pausable, ReentrancyGuard {
 
     if (presaleEnabled == true) {
       require(proof.verify(merkleRoot, keccak256(abi.encodePacked(msg.sender))), "You are not on the whitelist");
-      require(amount + whitelistMinted[msg.sender] <= maxMintPerAddress, "Exceed max mint per address for whitelist, try minting with less");
+      require(amount + whitelistMinted[msg.sender] <= maxMintPerAddress, "Exceeded max mint per address for whitelist, try minting with less");
     } else {
-      require(amount <= maxMintPerTx, "Exceed max mint per transaction");
+      require(amount <= maxMintPerTx, "Exceeded max mint per transaction");
     }
 
     for (uint256 i; i < amount; i++) {
