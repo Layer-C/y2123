@@ -301,12 +301,12 @@ describe("Y2123 Contract", function () {
     await expect(yContract.mint(accounts[0].address))
       .to.be.revertedWith('Pausable: paused');
 
-    await expect(yContract.setPaused(false));
+    await yContract.setPaused(false);
 
     await expect(yContract.mint(accounts[0].address))
       .to.be.revertedWith('Admins only!');
 
-    await expect(yContract.addAdmin(accounts[0].address));
+    await yContract.addAdmin(accounts[0].address);
 
     let tokenId = await yContract.totalSupply();
     await expect(yContract.mint(accounts[0].address))
@@ -320,7 +320,7 @@ describe("Y2123 Contract", function () {
 
     expect(await yContract.addressMinted(accounts[0].address)).to.equal(2);
 
-    await expect(yContract.removeAdmin(accounts[0].address));
+    await yContract.removeAdmin(accounts[0].address);
 
     await expect(yContract.mint(accounts[0].address))
       .to.be.revertedWith('Admins only!');
@@ -330,12 +330,12 @@ describe("Y2123 Contract", function () {
     await expect(yContract.burn(0))
       .to.be.revertedWith('Pausable: paused');
 
-    await expect(yContract.setPaused(false));
+    await yContract.setPaused(false);
 
     await expect(yContract.burn(0))
       .to.be.revertedWith('Admins only!');
 
-    await expect(yContract.addAdmin(accounts[0].address));
+    await yContract.addAdmin(accounts[0].address);
 
     await expect(yContract.burn(0))
       .to.be.revertedWith('ERC721: owner query for nonexistent token');
@@ -348,6 +348,51 @@ describe("Y2123 Contract", function () {
     await expect(yContract.burn(0))
       .to.emit(yContract, "Transfer")
       .withArgs(accounts[0].address, ethers.constants.AddressZero, 0);
+  });
+
+  it("Update origin", async () => {
+    await expect(yContract.updateOriginAccess([0]))
+      .to.be.revertedWith('Admins only!');
+
+    await yContract.addAdmin(accounts[0].address);
+
+    await yContract.updateOriginAccess([0]);
+
+    await yContract.setPaused(false);
+
+    let tokenId = await yContract.totalSupply();
+    await expect(yContract.mint(accounts[0].address))
+      .to.emit(yContract, "Transfer")
+      .withArgs(ethers.constants.AddressZero, accounts[0].address, tokenId);
+
+    await yContract.removeAdmin(accounts[0].address);
+
+    const tokenid1 = await yContract.tokenOfOwnerByIndex(accounts[0].address, 0);
+    expect(tokenid1).to.equal(0);
+
+    const balance = await yContract.balanceOf(accounts[0].address);
+    expect(balance).to.equal(1);
+
+    const address = await yContract.ownerOf(0);
+    expect(address).to.equal(accounts[0].address);
+
+    const tokenid2 = await yContract.tokenByIndex(0);
+    expect(tokenid2).to.equal(0);
+
+    await yContract.approve(accounts[1].address, 0);
+
+    const address1 = await yContract.getApproved(0);
+    expect(address1).to.equal(accounts[1].address);
+
+    await yContract.setApprovalForAll(accounts[1].address, true);
+
+    const approved = await yContract.isApprovedForAll(accounts[0].address, accounts[1].address);
+    expect(approved).to.equal(true);
+
+    await expect(yContract.transferFrom(accounts[0].address, accounts[1].address, 0))
+      .to.emit(yContract, "Transfer")
+      .withArgs(accounts[0].address, accounts[1].address, 0);
+
   });
 
 });

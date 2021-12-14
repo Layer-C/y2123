@@ -1,5 +1,5 @@
 //SPDX-License-Identifier: MIT
-pragma solidity ^0.8.9;
+pragma solidity ^0.8.0;
 
 /*
 
@@ -267,10 +267,10 @@ contract Y2123 is IY2123, ERC721Enumerable, Ownable, Pausable, ReentrancyGuard {
     _burn(tokenId);
   }
 
-  function updateOriginAccess(uint16[] memory tokenIds) external override {
+  function updateOriginAccess(uint256[] memory tokenIds) external override {
     require(admins[_msgSender()], "Admins only!");
-    uint64 blockNumber = uint64(block.number);
     uint64 timestamp = uint64(block.timestamp);
+    uint64 blockNumber = uint64(block.number);
     lastWriteAddress[tx.origin] = LastWrite(timestamp, blockNumber);
     for (uint256 i = 0; i < tokenIds.length; i++) {
       lastWriteToken[tokenIds[i]] = LastWrite(timestamp, blockNumber);
@@ -296,10 +296,12 @@ contract Y2123 is IY2123, ERC721Enumerable, Ownable, Pausable, ReentrancyGuard {
   }
 
   function addAdmin(address addr) external onlyOwner {
+    require(addr != address(0), "empty address");
     admins[addr] = true;
   }
 
   function removeAdmin(address addr) external onlyOwner {
+    require(addr != address(0), "empty address");
     admins[addr] = false;
   }
 
