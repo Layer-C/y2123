@@ -8,7 +8,7 @@ Y2123 Game
 Impact driven blockchain game with collaborative protocol.
 Save our planet by completing missions.
 
-https://y2123.com
+y2123.com
 
 */
 
@@ -41,15 +41,12 @@ contract Y2123 is IY2123, ERC721Enumerable, Ownable, Pausable, ReentrancyGuard {
   string private baseURI;
   uint256 public mintPrice = 0.063 ether;
   uint256 public maxMintPerTx = 3;
-  uint256 public maxMintPerAddress = 1;
+  uint256 public maxMintPerAddress = 2;
   bool public presaleEnabled = true;
   bool public saleEnabled = false;
   bool public freeMintEnabled = false;
-
   uint256 public reserveMintCount = 0;
   uint256 public freeMintCount = 0;
-  uint256 public reserveMintUnclaimed = MAX_RESERVE_MINT - reserveMintCount;
-  uint256 public freeMintUnclaimed = MAX_FREE_MINT - freeMintCount;
 
   mapping(address => uint256) public freeMintMinted;
   mapping(address => uint256) public whitelistMinted;
@@ -148,6 +145,10 @@ contract Y2123 is IY2123, ERC721Enumerable, Ownable, Pausable, ReentrancyGuard {
     maxMintPerAddress = newMaxMintPerAddress;
   }
 
+  function availableSupplyIndex() public view returns (uint256) {
+    return (MAX_SUPPLY - MAX_RESERVE_MINT - MAX_FREE_MINT + reserveMintCount + freeMintCount);
+  }
+
   function getTokenIDs(address addr) external view returns (uint256[] memory) {
     uint256 count = balanceOf(addr);
 
@@ -165,7 +166,7 @@ contract Y2123 is IY2123, ERC721Enumerable, Ownable, Pausable, ReentrancyGuard {
 
     require(reserveMintCount + amount <= MAX_RESERVE_MINT, "Reserved more then available");
 
-    for (uint256 i; i < amount; i++) {
+    for (uint256 i = 0; i < amount; i++) {
       _safeMint(msg.sender, totalMinted + i);
       addressMinted[msg.sender]++;
       reserveMintCount += 1;
@@ -180,7 +181,7 @@ contract Y2123 is IY2123, ERC721Enumerable, Ownable, Pausable, ReentrancyGuard {
     for (uint256 i = 0; i < quantity.length; ++i) {
       totalQuantity += quantity[i];
     }
-    require(supply + totalQuantity <= (MAX_SUPPLY - reserveMintUnclaimed - freeMintUnclaimed), "Not enough supply");
+    require(supply + totalQuantity <= availableSupplyIndex(), "Not enough supply");
     delete totalQuantity;
 
     for (uint256 i = 0; i < recipient.length; ++i) {
@@ -214,7 +215,7 @@ contract Y2123 is IY2123, ERC721Enumerable, Ownable, Pausable, ReentrancyGuard {
     require(msg.sender == tx.origin);
     require(saleEnabled, "Sale not enabled");
     require(amount * mintPrice <= msg.value, "More ETH please");
-    require(amount + totalMinted <= (MAX_SUPPLY - reserveMintUnclaimed - freeMintUnclaimed), "Please try minting with less, not enough supply!");
+    require(amount + totalMinted <= availableSupplyIndex(), "Please try minting with less, not enough supply!");
 
     if (presaleEnabled == true) {
       require(proof.verify(merkleRoot, keccak256(abi.encodePacked(msg.sender))), "You are not on the whitelist");
@@ -223,7 +224,7 @@ contract Y2123 is IY2123, ERC721Enumerable, Ownable, Pausable, ReentrancyGuard {
       require(amount <= maxMintPerTx, "Exceeded max mint per transaction");
     }
 
-    for (uint256 i; i < amount; i++) {
+    for (uint256 i = 0; i < amount; i++) {
       _safeMint(msg.sender, totalMinted + i);
       addressMinted[msg.sender]++;
       if (presaleEnabled == true) {
@@ -250,7 +251,7 @@ contract Y2123 is IY2123, ERC721Enumerable, Ownable, Pausable, ReentrancyGuard {
     uint256 minted = totalSupply();
 
     require(admins[_msgSender()], "Admins only!");
-    require(minted + 1 <= (MAX_SUPPLY - reserveMintUnclaimed - freeMintUnclaimed), "All tokens minted");
+    require(minted + 1 <= availableSupplyIndex(), "All tokens minted");
 
     emit Minted(minted);
     if (tx.origin != recipient) {

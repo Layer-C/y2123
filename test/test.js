@@ -30,19 +30,27 @@ describe("Y2123 Contract", function () {
     expect(await yContract.name()).to.equal("Y2123");
     expect(await yContract.symbol()).to.equal("Y2123");
     expect(await yContract.owner()).to.equal(accounts[0].address);
-    expect(await yContract.maxMintPerAddress()).to.equal(1);
+    expect(await yContract.maxMintPerAddress()).to.equal(2);
+
+    expect(await yContract.availableSupplyIndex()).to.equal(400);
 
     expect(await yContract.MAX_SUPPLY()).to.equal(500);
     await yContract.setMaxSupply(10000);
     expect(await yContract.MAX_SUPPLY()).to.equal(10000);
 
+    expect(await yContract.availableSupplyIndex()).to.equal(9900);
+
     expect(await yContract.MAX_RESERVE_MINT()).to.equal(50);
     await yContract.setMaxReserveMint(100);
     expect(await yContract.MAX_RESERVE_MINT()).to.equal(100);
 
+    expect(await yContract.availableSupplyIndex()).to.equal(9850);
+
     expect(await yContract.MAX_FREE_MINT()).to.equal(50);
     await yContract.setMaxFreeMint(200);
     expect(await yContract.MAX_FREE_MINT()).to.equal(200);
+
+    expect(await yContract.availableSupplyIndex()).to.equal(9700);
 
     expect(await yContract.mintPrice()).to.equal(BigInt(63000000000000000));
     await yContract.setMintPrice(BigInt(61000000000000000));
@@ -56,9 +64,9 @@ describe("Y2123 Contract", function () {
     await yContract.setMaxMintPerTx(4);
     expect(await yContract.maxMintPerTx()).to.equal(4);
 
-    expect(await yContract.maxMintPerAddress()).to.equal(1);
-    await yContract.setMaxMintPerAddress(2);
     expect(await yContract.maxMintPerAddress()).to.equal(2);
+    await yContract.setMaxMintPerAddress(3);
+    expect(await yContract.maxMintPerAddress()).to.equal(3);
 
     expect(await yContract.toggleSale())
       .to.emit(yContract, "SaleActive")
@@ -83,9 +91,14 @@ describe("Y2123 Contract", function () {
     await expect(yContract.paidMint(2, [], { value: BigInt(nftPrice), }))
       .to.be.revertedWith('More ETH please');
 
-    await expect(yContract.paidMint(2, [], { value: BigInt(nftPrice * 2), }))
+    await expect(yContract.paidMint(3, [], { value: BigInt(nftPrice * 3), }))
       .to.emit(yContract, "Transfer")
       .withArgs(ethers.constants.AddressZero, accounts[0].address, tokenId);
+
+    const balance = await yContract.balanceOf(accounts[0].address);
+    expect(balance).to.equal(3);
+
+    expect(await yContract.availableSupplyIndex()).to.equal(400);
 
     //const minted = await cContract.printY2123();
     //expect(minted).to.equal(2);
@@ -101,12 +114,14 @@ describe("Y2123 Contract", function () {
     await expect(yContract.setMaxSupply(99))
       .to.be.revertedWith('Value lower than total reserve & free mints');
 
-    await yContract.setMaxSupply(103);
+    await yContract.setMaxSupply(104);
 
     tokenId = await yContract.totalSupply();
     await expect(yContract.paidMint(1, [], { value: nftPrice, }))
       .to.emit(yContract, "Transfer")
       .withArgs(ethers.constants.AddressZero, accounts[0].address, tokenId);
+
+    expect(await yContract.availableSupplyIndex()).to.equal(4);
 
     await expect(yContract.paidMint(1, [], { value: nftPrice, }))
       .to.be.revertedWith('Please try minting with less, not enough supply!');
@@ -141,7 +156,7 @@ describe("Y2123 Contract", function () {
     let proof = merkleTree.getHexProof(keccak256(accounts[0].address));
     //console.log("owner proof is %s", proof);
 
-    await expect(yContract.paidMint(1, proof, { value: nftPrice, }))
+    await expect(yContract.paidMint(2, proof, { value: BigInt(nftPrice * 2), }))
       .to.emit(yContract, "Transfer")
       .withArgs(ethers.constants.AddressZero, accounts[0].address, tokenId);
 
@@ -155,6 +170,8 @@ describe("Y2123 Contract", function () {
     await expect(yContract.connect(accounts[1]).paidMint(1, proof, { value: nftPrice, }))
       .to.emit(yContract, "Transfer")
       .withArgs(ethers.constants.AddressZero, accounts[1].address, tokenId);
+
+    expect(await yContract.availableSupplyIndex()).to.equal(400);
 
     //Inject metamask Test2 account at the top
     list[0] = "0x043f292c37e1De0B53951d1e478b59BC5358F359";
@@ -216,7 +233,11 @@ describe("Y2123 Contract", function () {
     await expect(yContract.connect(accounts[1]).freeMint(proof2))
       .to.be.revertedWith('You already minted your free nft');
 
+    expect(await yContract.availableSupplyIndex()).to.equal(401);
+
     await yContract.setMaxFreeMint(1);
+
+    expect(await yContract.availableSupplyIndex()).to.equal(450);
 
     let proof3 = merkleTree.getHexProof(keccak256(accounts[2].address));
     await expect(yContract.connect(accounts[2]).freeMint(proof3))
@@ -224,10 +245,14 @@ describe("Y2123 Contract", function () {
 
     await yContract.setMaxFreeMint(2);
 
+    expect(await yContract.availableSupplyIndex()).to.equal(449);
+
     tokenId = await yContract.totalSupply();
     await expect(yContract.connect(accounts[2]).freeMint(proof3))
       .to.emit(yContract, "Transfer")
       .withArgs(ethers.constants.AddressZero, accounts[2].address, tokenId);
+
+    expect(await yContract.availableSupplyIndex()).to.equal(450);
 
     expect(await yContract.freeMintMinted(accounts[2].address)).to.equal(1);
     expect(await yContract.freeMintCount()).to.equal(2);
@@ -241,6 +266,8 @@ describe("Y2123 Contract", function () {
 
     expect(await yContract.reserveMintCount()).to.equal(2);
 
+    expect(await yContract.availableSupplyIndex()).to.equal(402);
+
     //expect(await yContract.getTokenIDs(accounts[0].address)).to.equal([0, 1]);
 
     await expect(yContract.reserve(50))
@@ -248,10 +275,14 @@ describe("Y2123 Contract", function () {
 
     await yContract.setMaxReserveMint(100);
 
+    expect(await yContract.availableSupplyIndex()).to.equal(352);
+
     tokenId = await yContract.totalSupply();
     await expect(yContract.reserve(50))
       .to.emit(yContract, "Transfer")
       .withArgs(ethers.constants.AddressZero, accounts[0].address, tokenId);
+
+    expect(await yContract.availableSupplyIndex()).to.equal(402);
 
     await expect(yContract.connect(accounts[1]).reserve(50))
       .to.be.revertedWith('Ownable: caller is not the owner');
@@ -265,6 +296,8 @@ describe("Y2123 Contract", function () {
 
     expect(await yContract.addressMinted(accounts[0].address)).to.equal(10);
     expect(await yContract.addressMinted(accounts[1].address)).to.equal(9);
+
+    expect(await yContract.availableSupplyIndex()).to.equal(400);
 
     await expect(yContract.airDrop([accounts[0].address, accounts[1].address], [10]))
       .to.be.revertedWith('Please provide equal quantities and recipients');
@@ -320,6 +353,8 @@ describe("Y2123 Contract", function () {
 
     expect(await yContract.addressMinted(accounts[0].address)).to.equal(2);
 
+    expect(await yContract.availableSupplyIndex()).to.equal(400);
+
     await yContract.removeAdmin(accounts[0].address);
 
     await expect(yContract.mint(accounts[0].address))
@@ -348,6 +383,8 @@ describe("Y2123 Contract", function () {
     await expect(yContract.burn(0))
       .to.emit(yContract, "Transfer")
       .withArgs(accounts[0].address, ethers.constants.AddressZero, 0);
+
+    expect(await yContract.availableSupplyIndex()).to.equal(400);
   });
 
   it("Update origin", async () => {
@@ -393,6 +430,30 @@ describe("Y2123 Contract", function () {
       .to.emit(yContract, "Transfer")
       .withArgs(accounts[0].address, accounts[1].address, 0);
 
+    expect(await yContract.availableSupplyIndex()).to.equal(400);
   });
 
+  it("Test generate wl and freelist roots", async () => {
+    let whitelist = [];
+    for (const account of accounts) {
+      whitelist.push(account.address);
+    }
+    //Inject metamask Test account at the top
+    whitelist[0] = "0xBD55d43702087b1A8C16Bf052Be549d7c4172f07";
+    console.log("whitelist is %s", whitelist);
+    let merkleTree = new MerkleTree(whitelist, keccak256, { hashLeaves: true, sortPairs: true });
+    let whitelistRoot = merkleTree.getHexRoot();
+    console.log("whitelistRoot is %s", whitelistRoot);
+
+    let freelist = [];
+    for (const account of accounts) {
+      freelist.push(account.address);
+    }
+    //Inject metamask Test account at the top
+    freelist[0] = "0x2DEb1F37eAd5A0554f0a267385E20CF81Bcb2957";
+    console.log("freelist is %s", freelist);
+    let merkleTree2 = new MerkleTree(freelist, keccak256, { hashLeaves: true, sortPairs: true });
+    let freelistRoot = merkleTree2.getHexRoot();
+    console.log("freelistRoot is %s", freelistRoot);
+  });
 });
