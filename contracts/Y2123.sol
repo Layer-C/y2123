@@ -71,11 +71,15 @@ contract Y2123 is IY2123, ERC721Enumerable, Ownable, Pausable, ReentrancyGuard {
     _;
   }
 
-  constructor() ERC721("Y2123", "Y2123") {
+  constructor(
+    string memory uri,
+    bytes32 root1,
+    bytes32 root2
+  ) ERC721("Y2123", "Y2123") {
     _pause();
-    baseURI = "ipfs://QmeSjSinHpPnmXmspMjwiXyN6zS4E9zccariGR3jxcaWtq/";
-    merkleRoot = 0x486048819872b8bad022b996e0de31aae3e5160b7c03de01a94d4bbadf4af63a;
-    freeRoot = 0x486048819872b8bad022b996e0de31aae3e5160b7c03de01a94d4bbadf4af63a;
+    baseURI = uri;
+    setMerkleRoot(root1);
+    setFreeRoot(root2);
   }
 
   function setMerkleRoot(bytes32 root) public onlyOwner {

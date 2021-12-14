@@ -5,21 +5,24 @@ const keccak256 = require('keccak256');
 describe("Y2123 Contract", function () {
   let yContract, oContract, cContract, accounts, merkleTree, root;
   let list = [];
+  const uri = "ipfs://QmWPw3fBWKUcmbuQx5ixF6o3xjD3Xk1y4H8BPs2JQtT1n4/";
+  const root1 = '0x486048819872b8bad022b996e0de31aae3e5160b7c03de01a94d4bbadf4af63a';
+  const root2 = '0x486048819872b8bad022b996e0de31aae3e5160b7c03de01a94d4bbadf4af63a';
 
   beforeEach(async () => {
     let contract = await ethers.getContractFactory("Y2123");
-    yContract = await contract.deploy();
+    yContract = await contract.deploy(uri, root1, root2);
     await yContract.deployed();
-
-    contract = await ethers.getContractFactory("Oxygen");
-    oContract = await contract.deploy();
-    await oContract.deployed();
-
-    contract = await ethers.getContractFactory("Clans");
-    cContract = await contract.deploy();
-    await cContract.deployed();
-    await cContract.setContracts(yContract.address, oContract.address)
-
+    /*
+        contract = await ethers.getContractFactory("Oxygen");
+        oContract = await contract.deploy();
+        await oContract.deployed();
+    
+        contract = await ethers.getContractFactory("Clans");
+        cContract = await contract.deploy();
+        await cContract.deployed();
+        await cContract.setContracts(yContract.address, oContract.address)
+    */
     accounts = await ethers.getSigners();
   });
 
@@ -84,8 +87,8 @@ describe("Y2123 Contract", function () {
       .to.emit(yContract, "Transfer")
       .withArgs(ethers.constants.AddressZero, accounts[0].address, tokenId);
 
-    const minted = await cContract.printY2123();
-    expect(minted).to.equal(2);
+    //const minted = await cContract.printY2123();
+    //expect(minted).to.equal(2);
     //console.log("y2123 totalSupply is %s", minted);
 
     const maxMintPerTxPlus1 = await yContract.maxMintPerTx() + 1;
@@ -108,7 +111,10 @@ describe("Y2123 Contract", function () {
     await expect(yContract.paidMint(1, [], { value: nftPrice, }))
       .to.be.revertedWith('Please try minting with less, not enough supply!');
 
+    expect(await yContract.tokenURI(0)).to.equal(uri + '0')
+
     await yContract.setBaseURI("ipfs://Test123/");
+    expect(await yContract.tokenURI(0)).to.equal("ipfs://Test123/0");
     expect(await yContract.tokenURI(1)).to.equal("ipfs://Test123/1");
   });
 
