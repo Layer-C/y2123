@@ -16,15 +16,8 @@ async function main() {
     // Get contract address
     console.log("Contract deployed to:", contract.address);
 
-    // Reserve NFTs
-    //let txn = await contract.reserveNFTs();
-    //await txn.wait();
-    //console.log("10 NFTs have been reserved");
-
-    // Get all token IDs of the owner
-    let tokens = await contract.getNFTCount(owner.address)
     let balance = await contract.balanceOf(owner.address)
-    console.log("Owner has tokens: %s balance: %s", tokens, balance);
+    console.log("Owner has balance: %s", balance);
 }
 
 main()

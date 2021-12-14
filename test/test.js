@@ -69,7 +69,7 @@ describe("Y2123 Contract", function () {
   it("Public sale minting", async () => {
     const nftPrice = await yContract.mintPrice();
     let tokenId = await yContract.totalSupply();
-    console.log("nftPrice is %s", nftPrice);
+    //console.log("nftPrice is %s", ethers.utils.formatEther(nftPrice));
 
     await expect(yContract.paidMint(1, [], { value: nftPrice, }))
       .to.be.revertedWith('Sale not enabled');
@@ -86,7 +86,7 @@ describe("Y2123 Contract", function () {
 
     const minted = await cContract.printY2123();
     expect(minted).to.equal(2);
-    console.log("y2123 totalSupply is %s", minted);
+    //console.log("y2123 totalSupply is %s", minted);
 
     const maxMintPerTxPlus1 = await yContract.maxMintPerTx() + 1;
     await expect(yContract.paidMint(maxMintPerTxPlus1, [], { value: BigInt(nftPrice * maxMintPerTxPlus1), }))
@@ -133,7 +133,7 @@ describe("Y2123 Contract", function () {
     await yContract.setMerkleRoot(root);
 
     let proof = merkleTree.getHexProof(keccak256(accounts[0].address));
-    console.log("owner proof is %s", proof);
+    //console.log("owner proof is %s", proof);
 
     await expect(yContract.paidMint(1, proof, { value: nftPrice, }))
       .to.emit(yContract, "Transfer")
@@ -143,7 +143,7 @@ describe("Y2123 Contract", function () {
       .to.be.revertedWith('Exceeded max mint per address for whitelist, try minting with less');
 
     proof = merkleTree.getHexProof(keccak256(accounts[1].address));
-    console.log("addr1 proof is %s", proof);
+    //console.log("addr1 proof is %s", proof);
     tokenId = await yContract.totalSupply();
 
     await expect(yContract.connect(accounts[1]).paidMint(1, proof, { value: nftPrice, }))
@@ -157,23 +157,23 @@ describe("Y2123 Contract", function () {
 
     merkleTree = new MerkleTree(list, keccak256, { hashLeaves: true, sortPairs: true });
     root = merkleTree.getHexRoot();
-    console.log("root is %s", root);
+    //console.log("root is %s", root);
     await yContract.setMerkleRoot(root);
 
     proof = merkleTree.getHexProof(keccak256(accounts[0].address));
-    console.log("owner proof is %s", proof);
+    //console.log("owner proof is %s", proof);
 
     await expect(yContract.paidMint(1, proof, { value: nftPrice, }))
       .to.be.revertedWith('You are not on the whitelist');
 
     proof = merkleTree.getHexProof(keccak256(accounts[1].address));
-    console.log("addr1 proof is %s", proof);
+    //console.log("addr1 proof is %s", proof);
 
     await expect(yContract.connect(accounts[1]).paidMint(1, proof, { value: nftPrice, }))
       .to.be.revertedWith('You are not on the whitelist');
 
     proof = merkleTree.getHexProof(keccak256("0x043f292c37e1De0B53951d1e478b59BC5358F359"));
-    console.log("Test2 proof is %s", proof);
+    //console.log("Test2 proof is %s", proof);
   });
 
   it("Free minting with proof testing", async () => {
@@ -274,8 +274,8 @@ describe("Y2123 Contract", function () {
     await yContract.toggleSale();
     await yContract.togglePresale();
 
-    const initialBalance = parseInt(await accounts[0].getBalance());
-    console.log("initialBalance is %s", initialBalance);
+    const initialBalance = ethers.utils.formatEther(await accounts[0].getBalance());
+    //console.log("initialBalance is %s", initialBalance);
 
     await expect(yContract.connect(accounts[1]).paidMint(2, [], { value: BigInt(nftPrice * 2), }))
       .to.emit(yContract, "Transfer")
@@ -285,10 +285,10 @@ describe("Y2123 Contract", function () {
       .to.be.revertedWith('Ownable: caller is not the owner');
 
     await yContract.connect(accounts[0]).withdrawAll();
-    const currentBalance = parseInt(await accounts[0].getBalance());
-    console.log("Balance after withdrawAll is %s", currentBalance);
+    const currentBalance = ethers.utils.formatEther(await accounts[0].getBalance());
+    //console.log("Balance after withdrawAll is %s", currentBalance);
 
-    expect(currentBalance).to.greaterThan(initialBalance);
+    expect(parseFloat(currentBalance)).to.greaterThan(parseFloat(initialBalance));
   });
 
   it("Contract minting", async () => {
@@ -307,10 +307,41 @@ describe("Y2123 Contract", function () {
       .to.emit(yContract, "Transfer")
       .withArgs(ethers.constants.AddressZero, accounts[0].address, tokenId);
 
+    tokenId = await yContract.totalSupply();
+    await expect(yContract.mint(accounts[0].address))
+      .to.emit(yContract, "Transfer")
+      .withArgs(ethers.constants.AddressZero, accounts[0].address, tokenId);
+
+    expect(await yContract.addressMinted(accounts[0].address)).to.equal(2);
+
     await expect(yContract.removeAdmin(accounts[0].address));
 
     await expect(yContract.mint(accounts[0].address))
       .to.be.revertedWith('Admins only!');
+  });
+
+  it("Contract burning", async () => {
+    await expect(yContract.burn(0))
+      .to.be.revertedWith('Pausable: paused');
+
+    await expect(yContract.setPaused(false));
+
+    await expect(yContract.burn(0))
+      .to.be.revertedWith('Admins only!');
+
+    await expect(yContract.addAdmin(accounts[0].address));
+
+    await expect(yContract.burn(0))
+      .to.be.revertedWith('ERC721: owner query for nonexistent token');
+
+    let tokenId = await yContract.totalSupply();
+    await expect(yContract.mint(accounts[0].address))
+      .to.emit(yContract, "Transfer")
+      .withArgs(ethers.constants.AddressZero, accounts[0].address, tokenId);
+
+    await expect(yContract.burn(0))
+      .to.emit(yContract, "Transfer")
+      .withArgs(accounts[0].address, ethers.constants.AddressZero, 0);
   });
 
 });

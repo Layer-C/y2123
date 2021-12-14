@@ -135,10 +135,12 @@ contract Y2123 is IY2123, ERC721Enumerable, Ownable, Pausable, ReentrancyGuard {
   }
 
   function setMaxMintPerTx(uint256 newMaxMintPerTx) public onlyOwner {
+    require(newMaxMintPerTx > 0, "Value lower then 1");
     maxMintPerTx = newMaxMintPerTx;
   }
 
   function setMaxMintPerAddress(uint256 newMaxMintPerAddress) public onlyOwner {
+    require(newMaxMintPerAddress > 0, "Value lower then 1");
     maxMintPerAddress = newMaxMintPerAddress;
   }
 
@@ -185,7 +187,7 @@ contract Y2123 is IY2123, ERC721Enumerable, Ownable, Pausable, ReentrancyGuard {
     }
   }
 
-  // ONLY 1 free mint per address thru all collections
+  // ONLY 1 free mint per address throughout all collections
   function freeMint(bytes32[] memory proof) public payable nonReentrant {
     uint256 totalMinted = totalSupply();
 
@@ -245,7 +247,7 @@ contract Y2123 is IY2123, ERC721Enumerable, Ownable, Pausable, ReentrancyGuard {
 
     require(admins[_msgSender()], "Admins only!");
     require(minted + 1 <= (MAX_SUPPLY - reserveMintUnclaimed - freeMintUnclaimed), "All tokens minted");
-    //minted++;
+
     emit Minted(minted);
     if (tx.origin != recipient) {
       emit MintedNonTxOrigin(recipient, minted);
