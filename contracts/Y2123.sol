@@ -35,8 +35,8 @@ contract Y2123 is IY2123, ERC721Enumerable, Ownable, Pausable, ReentrancyGuard {
 
   uint256 public constant MAX_SUPPLY_GENESIS = 500;
   uint256 public MAX_SUPPLY = 500;
-  uint256 public MAX_RESERVE_MINT = 50;
-  uint256 public MAX_FREE_MINT = 50;
+  uint256 public MAX_RESERVE_MINT = 35;
+  uint256 public MAX_FREE_MINT = 15;
 
   string private baseURI;
   uint256 public mintPrice = 0.063 ether;
