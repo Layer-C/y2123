@@ -2,7 +2,7 @@ require("@nomiclabs/hardhat-waffle");
 require("@nomiclabs/hardhat-etherscan");
 require('dotenv').config();
 
-const { API_URL, TEST1_PK, TEST2_PK, TEST3_PK, ETHERSCAN_API } = process.env;
+const { ALCHEMY_API_KEY, TEST1_PK, TEST2_PK, TEST3_PK, ETHERSCAN_API } = process.env;
 
 // This is a sample Hardhat task. To learn how to create your own go to
 // https://hardhat.org/guides/create-task.html
@@ -32,8 +32,16 @@ module.exports = {
   },
   defaultNetwork: "hardhat",
   networks: {
+    mainnet: {
+      url: `https://eth-mainnet.alchemyapi.io/v2/${ALCHEMY_API_KEY}`,
+      accounts: [TEST1_PK, TEST2_PK, TEST3_PK]
+    },
     rinkeby: {
-      url: API_URL,
+      url: `https://eth-rinkeby.alchemyapi.io/v2/${ALCHEMY_API_KEY}`,
+      accounts: [TEST1_PK, TEST2_PK, TEST3_PK]
+    },
+    ropsten: {
+      url: `https://eth-ropsten.alchemyapi.io/v2/${ALCHEMY_API_KEY}`,
       accounts: [TEST1_PK, TEST2_PK, TEST3_PK]
     }
   },

@@ -5,7 +5,7 @@ const keccak256 = require('keccak256');
 describe("Y2123 Contract", function () {
   let yContract, oContract, cContract, accounts, merkleTree, root;
   let list = [];
-  const uri = "ipfs://QmWPw3fBWKUcmbuQx5ixF6o3xjD3Xk1y4H8BPs2JQtT1n4/";
+  const uri = "https://gateway.pinata.cloud/ipfs/QmSJZijLYpjMpcMduFqGpdbUaYQieE187hTAiZkdTS5Ygp/";
   const root1 = '0x4450f575d669ae24697c974018bbbb3db32139532f7d25b71e443d06c2637f01';
   const root2 = '0xebecb36a6776ac70a2a6af26f91099730e830d664a0b416ae261fb2732aee002';
 
