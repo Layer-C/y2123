@@ -34,14 +34,10 @@ module.exports = {
   networks: {
     mainnet: {
       url: `https://eth-mainnet.alchemyapi.io/v2/${ALCHEMY_API_KEY}`,
-      accounts: [TEST1_PK, TEST2_PK, TEST3_PK]
+      accounts: [TEST1_PK]
     },
     rinkeby: {
       url: `https://eth-rinkeby.alchemyapi.io/v2/${ALCHEMY_API_KEY}`,
-      accounts: [TEST1_PK, TEST2_PK, TEST3_PK]
-    },
-    ropsten: {
-      url: `https://eth-ropsten.alchemyapi.io/v2/${ALCHEMY_API_KEY}`,
       accounts: [TEST1_PK, TEST2_PK, TEST3_PK]
     }
   },
