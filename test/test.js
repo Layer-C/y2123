@@ -24,6 +24,9 @@ describe("Y2123 Contract", function () {
         await cContract.setContracts(yContract.address, oContract.address)
     */
     accounts = await ethers.getSigners();
+
+    await yContract.toggleSale();
+    await yContract.togglePresale();
   });
 
   it("Should have basic info right", async () => {

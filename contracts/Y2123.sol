@@ -42,8 +42,8 @@ contract Y2123 is IY2123, ERC721Enumerable, Ownable, Pausable, ReentrancyGuard {
   uint256 public mintPrice = 0.063 ether;
   uint256 public maxMintPerTx = 3;
   uint256 public maxMintPerAddress = 2;
-  bool public presaleEnabled = true;
-  bool public saleEnabled = false;
+  bool public presaleEnabled = false;
+  bool public saleEnabled = true;
   bool public freeMintEnabled = false;
   uint256 public reserveMintCount = 0;
   uint256 public freeMintCount = 0;
