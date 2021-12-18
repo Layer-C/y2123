@@ -13,16 +13,16 @@ describe("Y2123 Contract", function () {
     let contract = await ethers.getContractFactory("Y2123");
     yContract = await contract.deploy(uri);
     await yContract.deployed();
-    /*
-        contract = await ethers.getContractFactory("Oxygen");
-        oContract = await contract.deploy();
-        await oContract.deployed();
-    
-        contract = await ethers.getContractFactory("Clans");
-        cContract = await contract.deploy();
-        await cContract.deployed();
-        await cContract.setContracts(yContract.address, oContract.address)
-    */
+
+    contract = await ethers.getContractFactory("Oxygen");
+    oContract = await contract.deploy();
+    await oContract.deployed();
+
+    contract = await ethers.getContractFactory("Clans");
+    cContract = await contract.deploy();
+    await cContract.deployed();
+    await cContract.setContracts(yContract.address, oContract.address)
+
     accounts = await ethers.getSigners();
 
     await yContract.toggleSale();
