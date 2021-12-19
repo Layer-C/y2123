@@ -103,10 +103,6 @@ describe("Y2123 Contract", function () {
 
     expect(await yContract.availableSupplyIndex()).to.equal(450);
 
-    //const minted = await cContract.printY2123();
-    //expect(minted).to.equal(2);
-    //console.log("y2123 totalSupply is %s", minted);
-
     const maxMintPerTxPlus1 = await yContract.maxMintPerTx() + 1;
     await expect(yContract.paidMint(maxMintPerTxPlus1, [], { value: BigInt(nftPrice * maxMintPerTxPlus1), }))
       .to.be.revertedWith('Exceeded max mint per transaction');

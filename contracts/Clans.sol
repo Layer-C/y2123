@@ -1,17 +1,44 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.9;
 
+import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts/security/Pausable.sol";
+import "@openzeppelin/contracts/utils/math/Math.sol";
+import "@openzeppelin/contracts/token/ERC1155/ERC1155.sol";
+import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
+import "@openzeppelin/contracts/utils/Strings.sol";
+
 import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/utils/cryptography/draft-EIP712.sol";
 import "@openzeppelin/contracts/utils/math/SafeMath.sol";
-import "@openzeppelin/contracts/access/Ownable.sol";
-import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 import "@openzeppelin/contracts/utils/Counters.sol";
+import "./IClans.sol";
 import "./IOxygen.sol";
 import "./IY2123.sol";
 
-contract Clans is EIP712, Ownable {
+contract Clans is IClans, ERC1155, EIP712, Ownable, Pausable {
+  using Strings for uint256;
+  string private baseURI;
+
+  constructor(string memory _baseURI) ERC1155(_baseURI) EIP712("Clans", "1.0") {
+    baseURI = _baseURI;
+    _pause();
+  }
+
+  function uri(uint256 typeId) public view override returns (string memory) {
+    //require(typeInfo[typeId].maxSupply > 0, "invalid type");
+    return bytes(baseURI).length > 0 ? string(abi.encodePacked(baseURI, typeId.toString())) : baseURI;
+  }
+
+  function mint(
+    uint256 typeId,
+    uint16 qty,
+    address recipient
+  ) external whenNotPaused {
+    _mint(recipient, typeId, qty, "");
+  }
+
   using EnumerableSet for EnumerableSet.AddressSet;
   using EnumerableSet for EnumerableSet.UintSet;
   using Counters for Counters.Counter;
@@ -48,8 +75,6 @@ contract Clans is EIP712, Ownable {
     addressToNonce[msg.sender].increment();
     _;
   }
-
-  constructor() EIP712("Clans", "1.0") {}
 
   function setContracts(address _y2123NFT, address _oxgnToken) external onlyOwner {
     y2123NFT = IY2123(_y2123NFT);
@@ -171,9 +196,5 @@ contract Clans is EIP712, Ownable {
   ) external returns (bytes4) {
     require(operator == address(this), "token must be staked over stake method");
     return bytes4(keccak256("onERC721Received(address,address,uint256,bytes)"));
-  }
-
-  function printY2123() public view returns (uint256) {
-    return y2123NFT.totalSupply();
   }
 }
