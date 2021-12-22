@@ -13,7 +13,7 @@ contract Oxygen is IOxygen, ERC20, Ownable {
   // address => allowedToCallFunctions
   mapping(address => bool) private admins;
 
-  constructor() ERC20("GP", "GP") {}
+  constructor() ERC20("OXGN", "OXGN") {}
 
   /**
    * enables an address to mint / burn

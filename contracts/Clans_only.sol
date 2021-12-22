@@ -8,12 +8,13 @@ import "@openzeppelin/contracts/utils/Strings.sol";
 import "@openzeppelin/contracts/utils/Counters.sol";
 import "./IClans.sol";
 
-contract Clans is IClans, ERC1155, Ownable, Pausable {
+contract Clans_only is IClans, ERC1155, Ownable, Pausable {
   using Strings for uint256;
   string private baseURI;
   using Counters for Counters.Counter;
   Counters.Counter public clanIdTracker;
   uint256 public creatorInitialClanTokens;
+  uint256 public changeLeaderPercentage;
 
   mapping(uint256 => uint256) public highestOwnedCount;
   mapping(uint256 => address) public highestOwned;
@@ -25,6 +26,10 @@ contract Clans is IClans, ERC1155, Ownable, Pausable {
 
   function uri(uint256 clanId) public view override returns (string memory) {
     return bytes(baseURI).length > 0 ? string(abi.encodePacked(baseURI, clanId.toString())) : baseURI;
+  }
+
+  function calculateClanTokenRequired(uint256 amount) external view returns (uint256) {
+    return (amount * changeLeaderPercentage) / 100;
   }
 
   function createClan() external whenNotPaused {

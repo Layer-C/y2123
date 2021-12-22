@@ -19,7 +19,7 @@ describe("Y2123 Contract", function () {
     await oContract.deployed();
 
     contract = await ethers.getContractFactory("Clans");
-    cContract = await contract.deploy();
+    cContract = await contract.deploy(uri);
     await cContract.deployed();
     await cContract.setContracts(yContract.address, oContract.address)
 
