@@ -8,7 +8,7 @@ describe("Clans Contract", function () {
         oContract = await contract.deploy();
         await oContract.deployed();
 
-        contract = await ethers.getContractFactory("Clans_only");
+        contract = await ethers.getContractFactory("Clans");
         cContract = await contract.deploy('');
         await cContract.deployed();
         //await cContract.setContracts(yContract.address, oContract.address)
@@ -22,11 +22,16 @@ describe("Clans Contract", function () {
     });
 
     it("Clan functions", async () => {
-      //expect(await cContract.clanIdTracker.current()).to.equal(0);
+      expect(await cContract.clanIdTracker()).to.equal(0);
       await cContract.createClan();
-      //expect(await cContract.clanIdTracker.current()).to.equal(1);
+      expect(await cContract.clanIdTracker()).to.equal(1);
       expect(await cContract.highestOwnedCount(0)).to.equal(100);
       expect(await cContract.highestOwned(0)).to.equal(accounts[0].address);
+
+      expect(await cContract.shouldChangeLeader(0, 100)).to.equal(false);
+      expect(await cContract.shouldChangeLeader(0, 110)).to.equal(false);
+      expect(await cContract.shouldChangeLeader(0, 111)).to.equal(true);
+
   });
 
 });
