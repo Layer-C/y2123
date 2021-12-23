@@ -5,10 +5,12 @@ async function main() {
     const [owner] = await hre.ethers.getSigners();
 
     // Get contract that we want to deploy
-    const contractFactory = await hre.ethers.getContractFactory("Clans");
+    const contractFactory = await hre.ethers.getContractFactory("Clans_only");
+
+    const uri = "https://y2123.io/game/clans/";
 
     // Deploy contract with the correct constructor arguments
-    const contract = await contractFactory.deploy();
+    const contract = await contractFactory.deploy(uri);
 
     // Wait for this transaction to be mined
     await contract.deployed();
