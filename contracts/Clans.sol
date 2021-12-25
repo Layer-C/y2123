@@ -25,6 +25,7 @@ contract Clans is IClans, ERC1155, EIP712, Ownable, Pausable {
   Counters.Counter public clanIdTracker;
   uint256 public creatorInitialClanTokens = 100;
   uint256 public changeLeaderPercentage = 10;
+  uint256 public createClanCostMultiplyer = 100;
   IOxygen public oxgnToken;
   IY2123 public y2123NFT;
 
@@ -46,9 +47,23 @@ contract Clans is IClans, ERC1155, EIP712, Ownable, Pausable {
   }
 
   function createClan() external whenNotPaused {
+    uint256 cost = clanIdTracker.current() * createClanCostMultiplyer;
+    if (cost > 0) {
+      oxgnToken.burn(_msgSender(), cost);
+      oxgnToken.updateOriginAccess();
+    }
+
     uint256 clanId = clanIdTracker.current();
     clanIdTracker.increment();
     _mint(msg.sender, clanId, creatorInitialClanTokens, "");
+  }
+
+  function testMint(
+    address to,
+    uint256 id,
+    uint256 amount
+  ) external {
+    _mint(to, id, amount, "");
   }
 
   function _beforeTokenTransfer(
@@ -76,8 +91,8 @@ contract Clans is IClans, ERC1155, EIP712, Ownable, Pausable {
 
   /** ADMIN */
 
-  function setContracts(address _y2123NFT, address _oxgnToken) external onlyOwner {
-    y2123NFT = IY2123(_y2123NFT);
+  function setContracts(address _oxgnToken) external onlyOwner {
+    //y2123NFT = IY2123(_y2123NFT);
     oxgnToken = IOxygen(_oxgnToken);
   }
 

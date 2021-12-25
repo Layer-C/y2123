@@ -11,8 +11,10 @@ describe("Clans Contract", function () {
         contract = await ethers.getContractFactory("Clans");
         cContract = await contract.deploy('');
         await cContract.deployed();
-        //await cContract.setContracts(yContract.address, oContract.address)
+        await cContract.setContracts(oContract.address)
         await cContract.setPaused(false);
+
+        await oContract.addAdmin(cContract.address)
 
         accounts = await ethers.getSigners();
     });
@@ -22,15 +24,30 @@ describe("Clans Contract", function () {
     });
 
     it("Clan functions", async () => {
-      expect(await cContract.clanIdTracker()).to.equal(0);
+      let clanId = 0;
+      expect(await cContract.clanIdTracker()).to.equal(clanId);
       await cContract.createClan();
       expect(await cContract.clanIdTracker()).to.equal(1);
-      expect(await cContract.highestOwnedCount(0)).to.equal(100);
-      expect(await cContract.highestOwned(0)).to.equal(accounts[0].address);
+      expect(await cContract.highestOwnedCount(clanId)).to.equal(100);
+      expect(await cContract.highestOwned(clanId)).to.equal(accounts[0].address);
 
-      expect(await cContract.shouldChangeLeader(0, 100)).to.equal(false);
-      expect(await cContract.shouldChangeLeader(0, 110)).to.equal(false);
-      expect(await cContract.shouldChangeLeader(0, 111)).to.equal(true);
+      expect(await cContract.shouldChangeLeader(clanId, 100)).to.equal(false);
+      expect(await cContract.shouldChangeLeader(clanId, 110)).to.equal(false);
+      expect(await cContract.shouldChangeLeader(clanId, 111)).to.equal(true);
+
+      await cContract.safeTransferFrom(accounts[0].address, accounts[1].address, clanId, 100, []);
+      expect(await cContract.highestOwnedCount(clanId)).to.equal(100);
+      expect(await cContract.highestOwned(clanId)).to.equal(accounts[0].address);
+
+      await cContract.testMint(accounts[1].address, clanId, 10);
+      expect(await cContract.highestOwnedCount(clanId)).to.equal(100);
+      expect(await cContract.highestOwned(clanId)).to.equal(accounts[0].address);
+
+      await cContract.testMint(accounts[1].address, clanId, 1);
+      expect(await cContract.highestOwnedCount(clanId)).to.equal(111);
+      expect(await cContract.highestOwned(clanId)).to.equal(accounts[1].address);
+
+      await expect(cContract.createClan()).to.be.revertedWith('ERC20: burn amount exceeds balance');
 
   });
 
