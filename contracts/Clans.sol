@@ -153,17 +153,9 @@ contract Clans is IClans, ERC1155, EIP712, Ownable, Pausable {
 
     for (uint256 i = 0; i < tokenIds.length; i++) {
       uint256 tokenId = tokenIds[i];
-
-      // Assign token to his owner
       contractTokenIdToOwner[contractAddress][tokenId] = msg.sender;
-
-      // Transfer token to this smart contract
       _contract.instance.safeTransferFrom(msg.sender, address(this), tokenId);
-
-      // Add this token to user staked tokens
       addressToStakedTokensSet[contractAddress][msg.sender].add(tokenId);
-
-      // Save stake timestamp
       contractTokenIdToStakedTimestamp[contractAddress][tokenId] = block.timestamp;
 
       emit Stake(tokenId, contractAddress, msg.sender);
@@ -177,16 +169,9 @@ contract Clans is IClans, ERC1155, EIP712, Ownable, Pausable {
       uint256 tokenId = tokenIds[i];
       require(addressToStakedTokensSet[contractAddress][msg.sender].contains(tokenId), "token is not staked");
 
-      // Remove owner of this token
       delete contractTokenIdToOwner[contractAddress][tokenId];
-
-      // Transfer token to his owner
       _contract.instance.safeTransferFrom(address(this), msg.sender, tokenId);
-
-      // Remove this token from user staked tokens
       addressToStakedTokensSet[contractAddress][msg.sender].remove(tokenId);
-
-      // Remove stake timestamp
       delete contractTokenIdToStakedTimestamp[contractAddress][tokenId];
 
       emit Unstake(tokenId, contractAddress, msg.sender);
@@ -195,7 +180,6 @@ contract Clans is IClans, ERC1155, EIP712, Ownable, Pausable {
 
   function stakedTokensOfOwner(address contractAddress, address owner) external view ifContractExists(contractAddress) returns (uint256[] memory) {
     EnumerableSet.UintSet storage userTokens = addressToStakedTokensSet[contractAddress][owner];
-
     uint256[] memory tokenIds = new uint256[](userTokens.length());
 
     for (uint256 i = 0; i < userTokens.length(); i++) {
@@ -254,5 +238,52 @@ contract Clans is IClans, ERC1155, EIP712, Ownable, Pausable {
   ) external view returns (bytes4) {
     require(operator == address(this), "token must be staked over stake method");
     return bytes4(keccak256("onERC721Received(address,address,uint256,bytes)"));
+  }
+
+  function claim(uint256 amount, bytes calldata signature) external {
+    require(amount > 0, "you have nothing to withdraw, do not lose your gas");
+    require(_signerAddress == recoverAddress(msg.sender, amount, accountToNonce[msg.sender], signature), "invalid signature");
+    goldz.transfer(msg.sender, amount);
+    emit Withdraw(amount, accountToNonce[msg.sender], msg.sender);
+    accountToLastWithdrawTimestamp[msg.sender] = block.timestamp;
+    accountToNonce[msg.sender]++;
+
+    require(_signerAddress == recoverAddress(msg.sender, amount, accountNonce(msg.sender), signature), "invalid signature");
+    goldz.transferFrom(address(this), msg.sender, amount);
+    addressToNonce[msg.sender].increment();
+    accountToLastWithdraw[msg.sender] = block.timestamp;
+    accountToLastWithdrawAmount[msg.sender] = amount;
+    emit Withdraw(msg.sender, amount);
+  }
+
+  bool public isSalesActive = true;
+  mapping(address => uint8) _addressToVaultLevel;
+  uint256[] public prices = [40 ether, 80 ether, 120 ether, 240 ether, 480 ether, 960 ether, 2880 ether, 8640 ether, 25920 ether];
+
+  function buyVault() external {
+    require(vaultLevelOfOwner(msg.sender) < prices.length + 1, "vault is at max level");
+    goldz.transferFrom(msg.sender, address(this), nextVaultPrice(msg.sender));
+    _addressToVaultLevel[msg.sender]++;
+  }
+
+  function buyVault(address receiver) external onlyRole(ADMIN_ROLE) {
+    require(vaultLevelOfOwner(receiver) < prices.length + 1, "vault is at max level");
+    _addressToVaultLevel[receiver]++;
+  }
+
+  function nextVaultPrice(address owner) public view returns (uint256) {
+    return prices[_addressToVaultLevel[owner]];
+  }
+
+  function vaultLevelOfOwner(address owner) public view returns (uint256) {
+    return _addressToVaultLevel[owner] + 1;
+  }
+
+  function toggleSales() external onlyRole(ADMIN_ROLE) {
+    isSalesActive = !isSalesActive;
+  }
+
+  function setPrices(uint256[] memory newPrices) external onlyRole(ADMIN_ROLE) {
+    prices = newPrices;
   }
 }
