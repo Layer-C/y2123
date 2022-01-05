@@ -26,12 +26,17 @@ contract Clans is IClans, ERC1155, EIP712, Ownable, Pausable {
   uint256 public creatorInitialClanTokens = 100;
   uint256 public changeLeaderPercentage = 10;
   uint256 public createClanCostMultiplyer = 100;
+  uint256 public switchColonyCost = 10000;
   IOxygen public oxgnToken;
   IY2123 public y2123NFT;
 
   mapping(address => bool) private admins;
   mapping(uint256 => uint256) public highestOwnedCount;
   mapping(uint256 => address) public highestOwned;
+  mapping(uint256 => uint256) public clanColony;
+
+  event ClanCreated(uint256 indexed clanId, uint256 indexed colonyId);
+  event SwitchColony(uint256 indexed clanId, uint256 indexed colonyId);
 
   constructor(string memory _baseURI) ERC1155(_baseURI) EIP712("y2123", "1.0") {
     baseURI = _baseURI;
@@ -46,16 +51,35 @@ contract Clans is IClans, ERC1155, EIP712, Ownable, Pausable {
     return amount > (highestOwnedCount[clanId] * (changeLeaderPercentage + 100)) / 100;
   }
 
-  function createClan() external whenNotPaused {
-    uint256 cost = clanIdTracker.current() * createClanCostMultiplyer;
-    if (cost > 0) {
-      oxgnToken.burn(_msgSender(), cost);
-      oxgnToken.updateOriginAccess();
+  function createClan(uint256 colonyId) external whenNotPaused {
+    require(colonyId > 0 && colonyId < 4, "only 3 colonies ever");
+    uint256 clanId = clanIdTracker.current();
+    clanColony[clanId] = colonyId;
+
+    if (!admins[_msgSender()]) {
+      uint256 cost = clanId * createClanCostMultiplyer;
+      if (cost > 0) {
+        oxgnToken.burn(_msgSender(), cost);
+        oxgnToken.updateOriginAccess();
+      }
     }
 
-    uint256 clanId = clanIdTracker.current();
     clanIdTracker.increment();
+    emit ClanCreated(clanId, colonyId);
     _mint(msg.sender, clanId, creatorInitialClanTokens, "");
+  }
+
+  function switchColony(uint256 clanId, uint256 colonyId) external whenNotPaused {
+    require(colonyId > 0 && colonyId < 4, "only 3 colonies ever");
+    require(clanId < clanIdTracker.current(), "invalid clan");
+    require(highestOwned[clanId] == _msgSender(), "clan leader only");
+    require(clanColony[clanId] != colonyId, "clan already belongs to this colony");
+
+    oxgnToken.burn(_msgSender(), switchColonyCost);
+    oxgnToken.updateOriginAccess();
+
+    emit SwitchColony(clanId, colonyId);
+    clanColony[clanId] = colonyId;
   }
 
   function testMint(
@@ -240,6 +264,8 @@ contract Clans is IClans, ERC1155, EIP712, Ownable, Pausable {
     return bytes4(keccak256("onERC721Received(address,address,uint256,bytes)"));
   }
 
+  /** CLAIM & DONATE */
+
   function claim(uint256 amount, bytes calldata signature) external {
     require(amount > 0, "you have nothing to withdraw, do not lose your gas");
     require(_signerAddress == recoverAddress(msg.sender, amount, accountNonce(msg.sender), signature), "invalid signature");
@@ -248,6 +274,11 @@ contract Clans is IClans, ERC1155, EIP712, Ownable, Pausable {
     accountToLastWithdraw[msg.sender] = block.timestamp;
     accountToLastWithdrawAmount[msg.sender] = amount;
     emit Withdraw(msg.sender, amount);
+  }
+
+  function withdrawForDonation() external onlyOwner {
+    uint256 amount = oxgnToken.balanceOf(address(this));
+    oxgnToken.transfer(msg.sender, amount);
   }
 
   /** VAULT */

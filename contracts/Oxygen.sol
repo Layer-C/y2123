@@ -101,13 +101,13 @@ contract Oxygen is IOxygen, ERC20, Ownable {
     lastWrite[tx.origin] = block.number;
   }
 
-  function balanceOf(address account) public view virtual override disallowIfStateIsChanging returns (uint256) {
+  function balanceOf(address account) public view virtual override(ERC20, IOxygen) disallowIfStateIsChanging returns (uint256) {
     // Y U checking on this address in the same block it's being modified... hmmmm
     require(admins[_msgSender()] || lastWrite[account] < block.number, "hmmmm what doing?");
     return super.balanceOf(account);
   }
 
-  function transfer(address recipient, uint256 amount) public virtual override disallowIfStateIsChanging returns (bool) {
+  function transfer(address recipient, uint256 amount) public virtual override(ERC20, IOxygen) disallowIfStateIsChanging returns (bool) {
     // NICE TRY MOUSE DRAGON
     require(admins[_msgSender()] || lastWrite[_msgSender()] < block.number, "hmmmm what doing?");
     return super.transfer(recipient, amount);

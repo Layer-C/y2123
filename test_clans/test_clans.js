@@ -24,9 +24,10 @@ describe("Clans Contract", function () {
     });
 
     it("Clan functions", async () => {
+      let colonyId = 1;
       let clanId = 0;
       expect(await cContract.clanIdTracker()).to.equal(clanId);
-      await cContract.createClan();
+      await cContract.createClan(colonyId);
       expect(await cContract.clanIdTracker()).to.equal(1);
       expect(await cContract.highestOwnedCount(clanId)).to.equal(100);
       expect(await cContract.highestOwned(clanId)).to.equal(accounts[0].address);
@@ -47,7 +48,7 @@ describe("Clans Contract", function () {
       expect(await cContract.highestOwnedCount(clanId)).to.equal(111);
       expect(await cContract.highestOwned(clanId)).to.equal(accounts[1].address);
 
-      await expect(cContract.createClan()).to.be.revertedWith('ERC20: burn amount exceeds balance');
+      await expect(cContract.createClan(colonyId)).to.be.revertedWith('ERC20: burn amount exceeds balance');
 
   });
 
