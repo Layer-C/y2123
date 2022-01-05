@@ -242,48 +242,39 @@ contract Clans is IClans, ERC1155, EIP712, Ownable, Pausable {
 
   function claim(uint256 amount, bytes calldata signature) external {
     require(amount > 0, "you have nothing to withdraw, do not lose your gas");
-    require(_signerAddress == recoverAddress(msg.sender, amount, accountToNonce[msg.sender], signature), "invalid signature");
-    goldz.transfer(msg.sender, amount);
-    emit Withdraw(amount, accountToNonce[msg.sender], msg.sender);
-    accountToLastWithdrawTimestamp[msg.sender] = block.timestamp;
-    accountToNonce[msg.sender]++;
-
     require(_signerAddress == recoverAddress(msg.sender, amount, accountNonce(msg.sender), signature), "invalid signature");
-    goldz.transferFrom(address(this), msg.sender, amount);
+    oxgnToken.mint(msg.sender, amount);
     addressToNonce[msg.sender].increment();
     accountToLastWithdraw[msg.sender] = block.timestamp;
     accountToLastWithdrawAmount[msg.sender] = amount;
     emit Withdraw(msg.sender, amount);
   }
 
-  bool public isSalesActive = true;
+  /** VAULT */
+
   mapping(address => uint8) _addressToVaultLevel;
-  uint256[] public prices = [40 ether, 80 ether, 120 ether, 240 ether, 480 ether, 960 ether, 2880 ether, 8640 ether, 25920 ether];
+  uint256[] public vaultPrices = [40 ether, 80 ether, 120 ether, 240 ether, 480 ether, 960 ether, 2880 ether, 8640 ether, 25920 ether];
 
   function buyVault() external {
-    require(vaultLevelOfOwner(msg.sender) < prices.length + 1, "vault is at max level");
-    goldz.transferFrom(msg.sender, address(this), nextVaultPrice(msg.sender));
+    require(vaultLevelOfOwner(msg.sender) < vaultPrices.length + 1, "vault is at max level");
+    oxgnToken.burn(msg.sender, nextVaultPrice(msg.sender));
     _addressToVaultLevel[msg.sender]++;
   }
 
-  function buyVault(address receiver) external onlyRole(ADMIN_ROLE) {
-    require(vaultLevelOfOwner(receiver) < prices.length + 1, "vault is at max level");
+  function buyVault(address receiver) external onlyOwner {
+    require(vaultLevelOfOwner(receiver) < vaultPrices.length + 1, "vault is at max level");
     _addressToVaultLevel[receiver]++;
   }
 
   function nextVaultPrice(address owner) public view returns (uint256) {
-    return prices[_addressToVaultLevel[owner]];
+    return vaultPrices[_addressToVaultLevel[owner]];
   }
 
   function vaultLevelOfOwner(address owner) public view returns (uint256) {
     return _addressToVaultLevel[owner] + 1;
   }
 
-  function toggleSales() external onlyRole(ADMIN_ROLE) {
-    isSalesActive = !isSalesActive;
-  }
-
-  function setPrices(uint256[] memory newPrices) external onlyRole(ADMIN_ROLE) {
-    prices = newPrices;
+  function setVaultPrices(uint256[] memory newPrices) external onlyOwner {
+    vaultPrices = newPrices;
   }
 }

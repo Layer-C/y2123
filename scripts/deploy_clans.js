@@ -7,7 +7,7 @@ async function main() {
     // Get contract that we want to deploy
     const contractFactory = await hre.ethers.getContractFactory("Clans");
 
-    const uri = "https://y2123.io/game/clans/";
+    const uri = "https://img-clans.y2123.io/";
 
     // Deploy contract with the correct constructor arguments
     const contract = await contractFactory.deploy(uri);
