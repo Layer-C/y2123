@@ -27,6 +27,8 @@ contract Clans is IClans, ERC1155, EIP712, Ownable, Pausable {
   uint256 public changeLeaderPercentage = 10;
   uint256 public createClanCostMultiplyer = 100;
   uint256 public switchColonyCost = 10000;
+  uint256 public updateRankCostMultiplyer = 10;
+  uint256 public clanRankCap = 9; // to be discussed reduce to 3 or 5
   IOxygen public oxgnToken;
   IY2123 public y2123NFT;
 
@@ -42,6 +44,9 @@ contract Clans is IClans, ERC1155, EIP712, Ownable, Pausable {
   constructor(string memory _baseURI) ERC1155(_baseURI) EIP712("y2123", "1.0") {
     baseURI = _baseURI;
     clanIdTracker.increment(); // start with clanId = 1
+    createClan(1); // clanId = 1 in colonyId = 1
+    createClan(2); // clanId = 2 in colonyId = 2
+    createClan(3); // clanId = 3 in colonyId = 3
     _pause();
   }
 
@@ -53,7 +58,8 @@ contract Clans is IClans, ERC1155, EIP712, Ownable, Pausable {
     return amount > (clanToHighestOwnedCount[clanId] * (changeLeaderPercentage + 100)) / 100;
   }
 
-  function createClan(uint256 colonyId) external whenNotPaused {
+  // turn/off
+  function createClan(uint256 colonyId) public whenNotPaused {
     require(colonyId > 0 && colonyId < 4, "only 3 colonies ever");
     uint256 clanId = clanIdTracker.current();
     clanToColony[clanId] = colonyId;
@@ -71,14 +77,17 @@ contract Clans is IClans, ERC1155, EIP712, Ownable, Pausable {
     _mint(msg.sender, clanId, creatorInitialClanTokens, "");
   }
 
+  // turn/off according to future plan
   function switchColony(uint256 clanId, uint256 colonyId) external whenNotPaused {
     require(colonyId > 0 && colonyId < 4, "only 3 colonies ever");
     require(clanId < clanIdTracker.current(), "invalid clan");
-    require(clanToHighestOwnedAccount[clanId] == _msgSender(), "clan leader only");
     require(clanToColony[clanId] != colonyId, "clan already belongs to this colony");
+    if (!admins[_msgSender()]) {
+      require(clanToHighestOwnedAccount[clanId] == _msgSender(), "clan leader only");
 
-    oxgnToken.burn(_msgSender(), switchColonyCost);
-    oxgnToken.updateOriginAccess();
+      oxgnToken.burn(_msgSender(), switchColonyCost);
+      oxgnToken.updateOriginAccess();
+    }
 
     emit SwitchColony(clanId, colonyId);
     clanToColony[clanId] = colonyId;
@@ -148,6 +157,12 @@ contract Clans is IClans, ERC1155, EIP712, Ownable, Pausable {
     bool isEntity;
   }
 
+  struct ClanRecordsStruct {
+    address entity;
+    uint256[] stakedNft;
+    ClanStruct clanInfo;
+  }
+
   mapping(address => ClanStruct) public clanStructs;
   address[] public entityList;
 
@@ -182,8 +197,12 @@ contract Clans is IClans, ERC1155, EIP712, Ownable, Pausable {
     return e;
   }
 
+  function getClan(address entityAddress) public view returns (ClanStruct memory) {
+    return clanStructs[entityAddress];
+  }
+
   function newEntity(address entityAddress, uint256 clanId) public returns (bool success) {
-    if (isEntity(entityAddress)) revert();
+    require(!isEntity(entityAddress), "account already in a clan");
     clanStructs[entityAddress].clanId = clanId;
     clanStructs[entityAddress].rank = 0;
     clanStructs[entityAddress].updateClanTimestamp = block.timestamp;
@@ -194,7 +213,8 @@ contract Clans is IClans, ERC1155, EIP712, Ownable, Pausable {
   }
 
   function updateEntityClan(address entityAddress, uint256 clanId) public returns (bool success) {
-    if (!isEntity(entityAddress)) revert();
+    require(isEntity(entityAddress), "account not in any clan");
+    require(clanStructs[entityAddress].clanId != clanId, "account already in this clan");
     clanStructs[entityAddress].clanId = clanId;
     clanStructs[entityAddress].rank = 0;
     clanStructs[entityAddress].updateClanTimestamp = block.timestamp;
@@ -202,12 +222,64 @@ contract Clans is IClans, ERC1155, EIP712, Ownable, Pausable {
     return true;
   }
 
-  function updateEntityRank(address entityAddress) public returns (bool success) {
-    if (!isEntity(entityAddress)) revert();
+// can set oxgn & clantoken cost seperately
+// clan leader can promote and demote his own rank
+  function promoteClanRank(address entityAddress, uint256 clanId) public returns (bool success) {
+    require(isEntity(entityAddress), "account not in any clan");
+    require(clanStructs[entityAddress].clanId == clanId, "account not in clan");
+    require(clanStructs[entityAddress].rank < clanRankCap, "max rank reached");
+
+    if (!admins[_msgSender()]) {
+      require(clanToHighestOwnedAccount[clanId] == _msgSender(), "clan leader only");
+      uint256 cost = clanStructs[entityAddress].rank * updateRankCostMultiplyer;
+      oxgnToken.burn(_msgSender(), cost);
+      oxgnToken.updateOriginAccess();
+      _burn(_msgSender(), clanId, cost);
+    }
+
     clanStructs[entityAddress].rank = clanStructs[entityAddress].rank + 1;
     clanStructs[entityAddress].updateRankTimestamp = block.timestamp;
     return true;
   }
+
+  function demoteClanRank(address entityAddress, uint256 clanId) public returns (bool success) {
+    require(isEntity(entityAddress), "account not in any clan");
+    require(clanStructs[entityAddress].clanId == clanId, "account not in clan");
+    require(clanStructs[entityAddress].rank > 0, "rank is 0");
+
+    if (!admins[_msgSender()]) {
+      require(clanToHighestOwnedAccount[clanId] == _msgSender(), "clan leader only");
+      uint256 cost = clanStructs[entityAddress].rank * updateRankCostMultiplyer;
+      oxgnToken.burn(_msgSender(), cost);
+      oxgnToken.updateOriginAccess();
+      _burn(_msgSender(), clanId, cost);
+    }
+
+    clanStructs[entityAddress].rank = clanStructs[entityAddress].rank - 1;
+    clanStructs[entityAddress].updateRankTimestamp = block.timestamp;
+    return true;
+  }
+
+  // Super demote to rank 0 no matter what rank you are now!
+  function superDemoteClanRank(address entityAddress, uint256 clanId) public returns (bool success) {
+    require(isEntity(entityAddress), "account not in any clan");
+    require(clanStructs[entityAddress].clanId == clanId, "account not in clan");
+    require(clanStructs[entityAddress].rank > 0, "rank is 0");
+
+    if (!admins[_msgSender()]) {
+      require(clanToHighestOwnedAccount[clanId] == _msgSender(), "clan leader only");
+      uint256 cost = clanRankCap * updateRankCostMultiplyer;
+      oxgnToken.burn(_msgSender(), cost);
+      oxgnToken.updateOriginAccess();
+      _burn(_msgSender(), clanId, cost);
+    }
+
+    clanStructs[entityAddress].rank = 0;
+    clanStructs[entityAddress].updateRankTimestamp = block.timestamp;
+    return true;
+  }
+
+  // any clan balancing on chain
 
   /** ADMIN */
 
