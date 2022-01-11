@@ -31,7 +31,7 @@ contract Clans is IClans, ERC1155, EIP712, Ownable, Pausable {
   uint256 public switchColonyCost = 10000;
   uint256 public updateRankCostMultiplyerOxgn = 10;
   uint256 public updateRankCostMultiplyerClanToken = 10;
-  uint256 public clanRankCap = 9; // to be discussed reduce to 3 or 5
+  uint256 public clanRankCap = 5; // to be discussed reduce to 3 or 5
   IOxygen public oxgnToken;
   IY2123 public y2123NFT;
 
@@ -39,7 +39,6 @@ contract Clans is IClans, ERC1155, EIP712, Ownable, Pausable {
   mapping(uint256 => uint256) public clanToHighestOwnedCount;
   mapping(uint256 => address) public clanToHighestOwnedAccount;
   mapping(uint256 => uint256) public clanToColony;
-  mapping(address => uint256) public accountToClan;
 
   event ClanCreated(uint256 indexed clanId, uint256 indexed colonyId);
   event SwitchColony(uint256 indexed clanId, uint256 indexed colonyId);
@@ -64,6 +63,31 @@ contract Clans is IClans, ERC1155, EIP712, Ownable, Pausable {
 
   function toggleFeatureFlagSwitchColony() external onlyOwner {
     featureFlagSwitchColony = !featureFlagSwitchColony;
+  }
+
+  function setChangeLeaderPercentage(uint256 newVal) public onlyOwner {
+    require(changeLeaderPercentage > 0, "Value lower then 1");
+    changeLeaderPercentage = newVal;
+  }
+
+  function setCreatorInitialClanTokens(uint256 newVal) public onlyOwner {
+    creatorInitialClanTokens = newVal;
+  }
+
+  function setCreateClanCostMultiplyer(uint256 newVal) public onlyOwner {
+    createClanCostMultiplyer = newVal;
+  }
+
+  function setSwitchColonyCost(uint256 newVal) public onlyOwner {
+    switchColonyCost = newVal;
+  }
+
+  function setUpdateRankCostMultiplyerOxgn(uint256 newVal) public onlyOwner {
+    updateRankCostMultiplyerOxgn = newVal;
+  }
+
+  function setUpdateRankCostMultiplyerClanToken(uint256 newVal) public onlyOwner {
+    updateRankCostMultiplyerClanToken = newVal;
   }
 
   function shouldChangeLeader(uint256 clanId, uint256 amount) public view returns (bool) {
@@ -105,6 +129,7 @@ contract Clans is IClans, ERC1155, EIP712, Ownable, Pausable {
   }
 
   function getClanCountInColony(uint256 colonyId) public view returns (uint256 clans) {
+    require(colonyId > 0 && colonyId < 4, "only 3 colonies ever");
     uint256 clanCount = 0;
     for (uint256 i = 0; i < clanIdTracker.current(); i++) {
       if (clanToColony[i] == colonyId) {
@@ -114,14 +139,16 @@ contract Clans is IClans, ERC1155, EIP712, Ownable, Pausable {
     return clanCount;
   }
 
+//Error!
   function getClansInColony(uint256 colonyId) public view returns (uint256[] memory) {
+    require(colonyId > 0 && colonyId < 4, "only 3 colonies ever");
     uint256 clanCount = getClanCountInColony(colonyId);
     uint256[] memory clans = new uint256[](clanCount);
     uint256 clanIndex = 0;
     for (uint256 i = 0; i < clanIdTracker.current(); i++) {
       if (clanToColony[i] == colonyId) {
-        clanIndex++;
         clans[clanIndex] = i;
+        clanIndex++;
       }
     }
     return clans;
@@ -196,19 +223,21 @@ contract Clans is IClans, ERC1155, EIP712, Ownable, Pausable {
     return clanCount;
   }
 
+//Error!
   function getAccountsInClan(uint256 clanId) public view returns (address[] memory) {
     uint256 clanCount = getEntityClanCount(clanId);
     address[] memory e = new address[](clanCount);
     uint256 clanIndex = 0;
     for (uint256 i = 0; i < entityList.length; i++) {
       if (clanStructs[entityList[i]].clanId == clanId) {
-        clanIndex++;
         e[clanIndex] = entityList[i];
+        clanIndex++;
       }
     }
     return e;
   }
 
+//Error!
   function getClanRecords(uint256 clanId) public view returns (ClanRecordsStruct[] memory) {
     uint256 clanCount = getEntityClanCount(clanId);
     ClanRecordsStruct[] memory e = new ClanRecordsStruct[](clanCount);
@@ -223,6 +252,7 @@ contract Clans is IClans, ERC1155, EIP712, Ownable, Pausable {
     return e;
   }
 
+//Error!
   function getClanAndStakedRecords(uint256 clanId, address nftContractAddress) public view returns (ClanRecordsStruct[] memory) {
     uint256 clanCount = getEntityClanCount(clanId);
     ClanRecordsStruct[] memory e = new ClanRecordsStruct[](clanCount);
@@ -407,7 +437,7 @@ contract Clans is IClans, ERC1155, EIP712, Ownable, Pausable {
     for (uint256 i = 0; i < tokenIds.length; i++) {
       uint256 tokenId = tokenIds[i];
       contractTokenIdToOwner[contractAddress][tokenId] = msg.sender;
-      _contract.instance.safeTransferFrom(msg.sender, address(this), tokenId);
+      _contract.instance.transferFrom(msg.sender, address(this), tokenId);
       addressToStakedTokensSet[contractAddress][msg.sender].add(tokenId);
       contractTokenIdToStakedTimestamp[contractAddress][tokenId] = block.timestamp;
 
@@ -423,7 +453,7 @@ contract Clans is IClans, ERC1155, EIP712, Ownable, Pausable {
       require(addressToStakedTokensSet[contractAddress][msg.sender].contains(tokenId), "token is not staked");
 
       delete contractTokenIdToOwner[contractAddress][tokenId];
-      _contract.instance.safeTransferFrom(address(this), msg.sender, tokenId);
+      _contract.instance.transferFrom(address(this), msg.sender, tokenId);
       addressToStakedTokensSet[contractAddress][msg.sender].remove(tokenId);
       delete contractTokenIdToStakedTimestamp[contractAddress][tokenId];
 
