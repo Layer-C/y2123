@@ -26,11 +26,15 @@ describe("Clans Contract", function () {
 
     it("Clan functions", async () => {
       let colonyId = 1;
-      let clanId = 1;
+      let clanId = 4;
+
+      await cContract.toggleFeatureFlagCreateClan();
+      await cContract.toggleFeatureFlagSwitchColony();
+
       expect(await cContract.clanIdTracker()).to.equal(clanId);
       await oContract.mint(accounts[0].address, 1000);
       await cContract.createClan(colonyId);
-      expect(await cContract.clanIdTracker()).to.equal(2);
+      expect(await cContract.clanIdTracker()).to.equal(clanId+1);
       expect(await cContract.clanToHighestOwnedCount(clanId)).to.equal(100);
       expect(await cContract.clanToHighestOwnedAccount(clanId)).to.equal(accounts[0].address);
 

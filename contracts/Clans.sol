@@ -23,7 +23,7 @@ contract Clans is IClans, ERC1155, EIP712, Ownable, Pausable {
   string private baseURI;
   using Counters for Counters.Counter;
   Counters.Counter public clanIdTracker;
-  bool public featureFlagCreateClan = false;
+  bool public featureFlagCreateClan = true;
   bool public featureFlagSwitchColony = false;
   uint256 public creatorInitialClanTokens = 100;
   uint256 public changeLeaderPercentage = 10;
@@ -50,11 +50,20 @@ contract Clans is IClans, ERC1155, EIP712, Ownable, Pausable {
     createClan(1); // clanId = 1 in colonyId = 1
     createClan(2); // clanId = 2 in colonyId = 2
     createClan(3); // clanId = 3 in colonyId = 3
+    featureFlagCreateClan = false;
     _pause();
   }
 
   function uri(uint256 clanId) public view override returns (string memory) {
     return bytes(baseURI).length > 0 ? string(abi.encodePacked(baseURI, clanId.toString())) : baseURI;
+  }
+
+  function toggleFeatureFlagCreateClan() external onlyOwner {
+    featureFlagCreateClan = !featureFlagCreateClan;
+  }
+
+  function toggleFeatureFlagSwitchColony() external onlyOwner {
+    featureFlagSwitchColony = !featureFlagSwitchColony;
   }
 
   function shouldChangeLeader(uint256 clanId, uint256 amount) public view returns (bool) {
@@ -67,7 +76,7 @@ contract Clans is IClans, ERC1155, EIP712, Ownable, Pausable {
     uint256 clanId = clanIdTracker.current();
     clanToColony[clanId] = colonyId;
 
-    if (!admins[_msgSender()]) {
+    if (!admins[_msgSender()] && msg.sender != tx.origin) {
       uint256 cost = clanId * createClanCostMultiplyer;
       if (cost > 0) {
         oxgnToken.burn(_msgSender(), cost);
