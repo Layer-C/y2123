@@ -244,9 +244,9 @@ contract Clans is IClans, ERC1155, EIP712, Ownable, Pausable {
     uint256 clanIndex = 0;
     for (uint256 i = 0; i < entityList.length; i++) {
       if (clanStructs[entityList[i]].clanId == clanId) {
-        clanIndex++;
         e[clanIndex].entity = entityList[i];
         e[clanIndex].clanData = getClan(entityList[i]);
+        clanIndex++;
       }
     }
     return e;
@@ -259,7 +259,6 @@ contract Clans is IClans, ERC1155, EIP712, Ownable, Pausable {
     uint256 clanIndex = 0;
     for (uint256 i = 0; i < entityList.length; i++) {
       if (clanStructs[entityList[i]].clanId == clanId) {
-        clanIndex++;
         e[clanIndex].entity = entityList[i];
         e[clanIndex].clanData = getClan(entityList[i]);
         e[clanIndex].stakedNftIds = stakedTokensOfOwner(nftContractAddress, entityList[i]);
@@ -270,6 +269,7 @@ contract Clans is IClans, ERC1155, EIP712, Ownable, Pausable {
           }
           e[clanIndex].stakedNftTimestamps = ts;
         }
+        clanIndex++;
       }
     }
     return e;
