@@ -2,29 +2,23 @@
 pragma solidity ^0.8.9;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
-import "@openzeppelin/contracts/security/Pausable.sol";
-import "@openzeppelin/contracts/utils/math/Math.sol";
 import "@openzeppelin/contracts/token/ERC1155/ERC1155.sol";
-import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
-import "@openzeppelin/contracts/utils/Strings.sol";
 import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
-import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 import "@openzeppelin/contracts/utils/cryptography/draft-EIP712.sol";
-import "@openzeppelin/contracts/utils/math/SafeMath.sol";
 import "@openzeppelin/contracts/utils/Counters.sol";
-import "./IClans.sol";
 import "./IOxygen.sol";
-import "./IY2123.sol";
 
-import "hardhat/console.sol";
+//import "hardhat/console.sol";
 
-contract Clans is IClans, ERC1155, EIP712, Ownable, Pausable {
+contract Clans is ERC1155, EIP712, Ownable {
   using Strings for uint256;
   string private baseURI;
   using Counters for Counters.Counter;
   Counters.Counter public clanIdTracker;
   bool public featureFlagCreateClan = true;
   bool public featureFlagSwitchColony = false;
+  bool public featureFlagSuperDemote = false;
   uint256 public creatorInitialClanTokens = 100;
   uint256 public changeLeaderPercentage = 10;
   uint256 public createClanCostMultiplier = 100;
@@ -35,7 +29,6 @@ contract Clans is IClans, ERC1155, EIP712, Ownable, Pausable {
   uint256 public updateRankCostMultiplierClanToken = 10;
   uint256 public clanRankCap = 5; // to be discussed reduce to 3 or 5
   IOxygen public oxgnToken;
-  IY2123 public y2123NFT;
 
   mapping(address => bool) private admins;
   mapping(uint256 => uint256) public clanToHighestOwnedCount;
@@ -52,7 +45,6 @@ contract Clans is IClans, ERC1155, EIP712, Ownable, Pausable {
     createClan(2); // clanId = 2 in colonyId = 2
     createClan(3); // clanId = 3 in colonyId = 3
     featureFlagCreateClan = false;
-    _pause();
   }
 
   function uri(uint256 clanId) public view override returns (string memory) {
@@ -65,6 +57,10 @@ contract Clans is IClans, ERC1155, EIP712, Ownable, Pausable {
 
   function toggleFeatureFlagSwitchColony() external onlyOwner {
     featureFlagSwitchColony = !featureFlagSwitchColony;
+  }
+
+  function toggleFeatureFlagSuperDemote() external onlyOwner {
+    featureFlagSuperDemote = !featureFlagSuperDemote;
   }
 
   function setChangeLeaderPercentage(uint256 newVal) public onlyOwner {
@@ -103,6 +99,64 @@ contract Clans is IClans, ERC1155, EIP712, Ownable, Pausable {
   function shouldChangeLeader(uint256 clanId, uint256 amount) public view returns (bool) {
     return amount > (clanToHighestOwnedCount[clanId] * (changeLeaderPercentage + 100)) / 100;
   }
+
+  /** ADMIN */
+
+  function setContracts(address _oxgnToken) external onlyOwner {
+    oxgnToken = IOxygen(_oxgnToken);
+  }
+
+  function addAdmin(address addr) external onlyOwner {
+    require(addr != address(0), "empty address");
+    admins[addr] = true;
+  }
+
+  function removeAdmin(address addr) external onlyOwner {
+    require(addr != address(0), "empty address");
+    admins[addr] = false;
+  }
+
+  function _hash(
+    address account,
+    uint256 amount,
+    uint256 nonce
+  ) internal view returns (bytes32) {
+    return _hashTypedDataV4(keccak256(abi.encode(keccak256("MyGoldz(uint256 amount,address account,uint256 nonce)"), amount, account, nonce)));
+  }
+
+  function recoverAddress(
+    address account,
+    uint256 amount,
+    uint256 nonce,
+    bytes calldata signature
+  ) public view returns (address) {
+    return ECDSA.recover(_hash(account, amount, nonce), signature);
+  }
+
+  /** CLAIM & DONATE */
+
+  address _signerAddress;
+
+  function setSignerAddress(address signerAddress) external onlyOwner {
+    _signerAddress = signerAddress;
+  }
+
+  function claim(uint256 amount, bytes calldata signature) external {
+    require(amount > 0, "you have nothing to withdraw, do not lose your gas");
+    require(_signerAddress == recoverAddress(msg.sender, amount, accountNonce(msg.sender), signature), "invalid signature");
+    oxgnToken.mint(msg.sender, amount);
+    addressToNonce[msg.sender].increment();
+    accountToLastWithdraw[msg.sender] = block.timestamp;
+    accountToLastWithdrawAmount[msg.sender] = amount;
+    emit Withdraw(msg.sender, amount);
+  }
+
+  function withdrawForDonation() external onlyOwner {
+    uint256 amount = oxgnToken.balanceOf(address(this));
+    oxgnToken.transfer(msg.sender, amount);
+  }
+
+  /** CLAN */
 
   function createClan(uint256 colonyId) public {
     require(featureFlagCreateClan, "feature not enabled");
@@ -175,8 +229,7 @@ contract Clans is IClans, ERC1155, EIP712, Ownable, Pausable {
       uint256 id = ids[i];
       uint256 newAmount = balanceOf(to, id) + amounts[i];
 
-      console.log("After transfer, %s will have %s tokens.", to, newAmount);
-
+      //console.log("After transfer, %s will have %s tokens.", to, newAmount);
       if (shouldChangeLeader(id, newAmount)) {
         clanToHighestOwnedCount[id] = newAmount;
         clanToHighestOwnedAccount[id] = to;
@@ -352,6 +405,7 @@ contract Clans is IClans, ERC1155, EIP712, Ownable, Pausable {
 
   // Super demote to rank 0 no matter what rank you are now!
   function superDemoteClanRank(address entityAddress, uint256 clanId) public returns (bool success) {
+    require(featureFlagSuperDemote, "feature not enabled");
     require(isEntity(entityAddress), "account not in any clan");
     require(clanStructs[entityAddress].clanId == clanId, "account not in clan");
     require(clanStructs[entityAddress].rank > 0, "rank is 0");
@@ -374,30 +428,6 @@ contract Clans is IClans, ERC1155, EIP712, Ownable, Pausable {
     return true;
   }
 
-  // any clan balancing on chain?
-
-  /** ADMIN */
-
-  function setContracts(address _oxgnToken) external onlyOwner {
-    //y2123NFT = IY2123(_y2123NFT);
-    oxgnToken = IOxygen(_oxgnToken);
-  }
-
-  function setPaused(bool _paused) external onlyOwner {
-    if (_paused) _pause();
-    else _unpause();
-  }
-
-  function addAdmin(address addr) external onlyOwner {
-    require(addr != address(0), "empty address");
-    admins[addr] = true;
-  }
-
-  function removeAdmin(address addr) external onlyOwner {
-    require(addr != address(0), "empty address");
-    admins[addr] = false;
-  }
-
   /** STAKING */
 
   using EnumerableSet for EnumerableSet.AddressSet;
@@ -415,9 +445,7 @@ contract Clans is IClans, ERC1155, EIP712, Ownable, Pausable {
   mapping(address => Counters.Counter) addressToNonce;
   mapping(address => uint256) public accountToLastWithdraw;
   mapping(address => uint256) public accountToLastWithdrawAmount;
-
   EnumerableSet.AddressSet activeContracts;
-  address _signerAddress;
 
   event Stake(uint256 tokenId, address contractAddress, address owner);
   event Unstake(uint256 tokenId, address contractAddress, address owner);
@@ -500,80 +528,31 @@ contract Clans is IClans, ERC1155, EIP712, Ownable, Pausable {
     return addressToNonce[accountAddress].current();
   }
 
-  function setSignerAddress(address signerAddress) external onlyOwner {
-    _signerAddress = signerAddress;
+  /** OXGN TANK */
+
+  mapping(address => uint8) _addressToTankLevel;
+  uint256[] public tankPrices = [50 ether, 100 ether, 200 ether, 400 ether, 800 ether, 1600 ether, 3200 ether, 6400 ether, 12800 ether];
+
+  function upgradeTank() external {
+    require(tankLevelOfOwner(msg.sender) < tankPrices.length + 1, "tank is at max level");
+    oxgnToken.burn(msg.sender, nextLevelTankPrice(msg.sender));
+    _addressToTankLevel[msg.sender]++;
   }
 
-  function _hash(
-    address account,
-    uint256 amount,
-    uint256 nonce
-  ) internal view returns (bytes32) {
-    return _hashTypedDataV4(keccak256(abi.encode(keccak256("MyGoldz(uint256 amount,address account,uint256 nonce)"), amount, account, nonce)));
+  function upgradeTank(address receiver) external onlyOwner {
+    require(tankLevelOfOwner(receiver) < tankPrices.length + 1, "tank is at max level");
+    _addressToTankLevel[receiver]++;
   }
 
-  function recoverAddress(
-    address account,
-    uint256 amount,
-    uint256 nonce,
-    bytes calldata signature
-  ) public view returns (address) {
-    return ECDSA.recover(_hash(account, amount, nonce), signature);
+  function nextLevelTankPrice(address owner) public view returns (uint256) {
+    return tankPrices[_addressToTankLevel[owner]];
   }
 
-  // was not view
-  function onERC721Received(
-    address operator,
-    address,
-    uint256,
-    bytes calldata
-  ) external view returns (bytes4) {
-    require(operator == address(this), "token must be staked over stake method");
-    return bytes4(keccak256("onERC721Received(address,address,uint256,bytes)"));
+  function tankLevelOfOwner(address owner) public view returns (uint256) {
+    return _addressToTankLevel[owner] + 1;
   }
 
-  /** CLAIM & DONATE */
-
-  function claim(uint256 amount, bytes calldata signature) external {
-    require(amount > 0, "you have nothing to withdraw, do not lose your gas");
-    require(_signerAddress == recoverAddress(msg.sender, amount, accountNonce(msg.sender), signature), "invalid signature");
-    oxgnToken.mint(msg.sender, amount);
-    addressToNonce[msg.sender].increment();
-    accountToLastWithdraw[msg.sender] = block.timestamp;
-    accountToLastWithdrawAmount[msg.sender] = amount;
-    emit Withdraw(msg.sender, amount);
-  }
-
-  function withdrawForDonation() external onlyOwner {
-    uint256 amount = oxgnToken.balanceOf(address(this));
-    oxgnToken.transfer(msg.sender, amount);
-  }
-
-  /** VAULT */
-
-  mapping(address => uint8) _addressToVaultLevel;
-  uint256[] public vaultPrices = [40 ether, 80 ether, 120 ether, 240 ether, 480 ether, 960 ether, 2880 ether, 8640 ether, 25920 ether];
-
-  function buyVault() external {
-    require(vaultLevelOfOwner(msg.sender) < vaultPrices.length + 1, "vault is at max level");
-    oxgnToken.burn(msg.sender, nextVaultPrice(msg.sender));
-    _addressToVaultLevel[msg.sender]++;
-  }
-
-  function buyVault(address receiver) external onlyOwner {
-    require(vaultLevelOfOwner(receiver) < vaultPrices.length + 1, "vault is at max level");
-    _addressToVaultLevel[receiver]++;
-  }
-
-  function nextVaultPrice(address owner) public view returns (uint256) {
-    return vaultPrices[_addressToVaultLevel[owner]];
-  }
-
-  function vaultLevelOfOwner(address owner) public view returns (uint256) {
-    return _addressToVaultLevel[owner] + 1;
-  }
-
-  function setVaultPrices(uint256[] memory newPrices) external onlyOwner {
-    vaultPrices = newPrices;
+  function setTankPrices(uint256[] memory newPrices) external onlyOwner {
+    tankPrices = newPrices;
   }
 }

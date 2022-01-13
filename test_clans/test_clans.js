@@ -17,7 +17,6 @@ describe("Clans Contract", function () {
     cContract = await contract.deploy("");
     await cContract.deployed();
     await cContract.setContracts(oContract.address);
-    await cContract.setPaused(false);
 
     await oContract.addAdmin(cContract.address);
 
@@ -55,22 +54,24 @@ describe("Clans Contract", function () {
     expect(await cContract.clanToHighestOwnedCount(clanId)).to.equal(100);
     expect(await cContract.clanToHighestOwnedAccount(clanId)).to.equal(accounts[0].address);
 
-    await cContract.testMint(accounts[1].address, clanId, 10);
-    expect(await cContract.clanToHighestOwnedCount(clanId)).to.equal(100);
-    expect(await cContract.clanToHighestOwnedAccount(clanId)).to.equal(accounts[0].address);
-
-    await cContract.testMint(accounts[1].address, clanId, 1);
-    expect(await cContract.clanToHighestOwnedCount(clanId)).to.equal(111);
-    expect(await cContract.clanToHighestOwnedAccount(clanId)).to.equal(accounts[1].address);
-
     //await expect(cContract.createClan(colonyId)).to.be.revertedWith('ERC20: burn amount exceeds balance');
 
     const clans = await cContract.getClansInColony(1);
     expect(ethers.BigNumber.from(clans[0])).to.eql(ethers.BigNumber.from(1));
     expect(ethers.BigNumber.from(clans[1])).to.eql(ethers.BigNumber.from(4));
 
-    await cContract.newEntity(accounts[0].address, 1);
-    await cContract.newEntity(accounts[1].address, 1);
+    const nftPrice = await yContract.mintPrice();
+    let tokenId = await yContract.totalSupply();
+    await expect(yContract.paidMint(3, [], { value: BigInt(nftPrice * 3) }))
+      .to.emit(yContract, "Transfer")
+      .withArgs(ethers.constants.AddressZero, accounts[0].address, tokenId);
+
+    await yContract.connect(accounts[1]).paidMint(3, [], { value: BigInt(nftPrice * 3) })
+
+    await yContract.addAdmin(cContract.address);
+    await cContract.addContract(yContract.address);
+    await cContract.stake(yContract.address, [0, 1, 2], 1);
+    await cContract.connect(accounts[1]).stake(yContract.address, [3, 4, 5], 1);
 
     const acc = await cContract.getAccountsInClan(1);
     expect(acc[0]).to.eql(accounts[0].address);
@@ -82,16 +83,6 @@ describe("Clans Contract", function () {
     expect(ethers.BigNumber.from(clanRecords[0].clanData.clanId)).to.eql(ethers.BigNumber.from(1));
     expect(clanRecords[1].entity).to.eql(accounts[1].address);
     expect(ethers.BigNumber.from(clanRecords[1].clanData.clanId)).to.eql(ethers.BigNumber.from(1));
-
-    const nftPrice = await yContract.mintPrice();
-    let tokenId = await yContract.totalSupply();
-    await expect(yContract.paidMint(3, [], { value: BigInt(nftPrice * 3) }))
-      .to.emit(yContract, "Transfer")
-      .withArgs(ethers.constants.AddressZero, accounts[0].address, tokenId);
-
-    await yContract.addAdmin(cContract.address);
-    await cContract.addContract(yContract.address);
-    await cContract.stake(yContract.address, [0, 1, 2]);
 
     const clanStakedRecords = await cContract.getClanAndStakedRecords(1, yContract.address);
     console.log(clanStakedRecords);
