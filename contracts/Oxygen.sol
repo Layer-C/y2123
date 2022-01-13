@@ -8,8 +8,16 @@ import "./IOxygen.sol";
 contract Oxygen is IOxygen, ERC20, Ownable {
   mapping(address => uint256) private lastWrite;
   mapping(address => bool) private admins;
+  uint256 public maxCap = 8000000000;
+  address public donationAccount;
+  uint256 public donationCount;
+  uint256 public mintedCount;
 
   constructor() ERC20("Y2123 OXGN", "OXGN") {}
+
+  function setDonationAccount(address addr) external onlyOwner {
+    donationAccount = addr;
+  }
 
   function addAdmin(address addr) external onlyOwner {
     admins[addr] = true;
@@ -21,6 +29,11 @@ contract Oxygen is IOxygen, ERC20, Ownable {
 
   function mint(address to, uint256 amount) external override {
     require(admins[msg.sender], "Only admins can mint");
+    require(mintedCount + amount <= maxCap - donationCount, "Amount exceeds max cap or max cap reached!");
+    if (to == donationAccount) {
+      donationCount = donationCount + amount;
+    }
+    mintedCount = mintedCount + amount;
     _mint(to, amount);
   }
 

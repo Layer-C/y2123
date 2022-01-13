@@ -29,6 +29,10 @@ describe("Clans Contract", function () {
     expect(await cContract.owner()).to.equal(accounts[0].address);
   });
 
+  it("Oxgn functions", async () => {
+    // test out max cap minting
+  });
+
   it("Clan functions", async () => {
     let colonyId = 1;
     let clanId = 4;
