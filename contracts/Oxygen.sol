@@ -8,7 +8,7 @@ import "./IOxygen.sol";
 contract Oxygen is IOxygen, ERC20, Ownable {
   mapping(address => uint256) private lastWrite;
   mapping(address => bool) private admins;
-  uint256 public maxCap = 8000000000;
+  uint256 public startMaxCap = 8000000000;
   address public donationAccount;
   uint256 public donationCount;
   uint256 public mintedCount;
@@ -29,7 +29,7 @@ contract Oxygen is IOxygen, ERC20, Ownable {
 
   function mint(address to, uint256 amount) external override {
     require(admins[msg.sender], "Only admins can mint");
-    require(mintedCount + amount <= maxCap - donationCount, "Amount exceeds max cap or max cap reached!");
+    require(mintedCount + amount <= currentMaxCap(), "Amount exceeds max cap or max cap reached!");
     if (to == donationAccount) {
       donationCount = donationCount + amount;
     }
@@ -40,6 +40,10 @@ contract Oxygen is IOxygen, ERC20, Ownable {
   function burn(address from, uint256 amount) external override {
     require(admins[msg.sender], "Only admins can burn");
     _burn(from, amount);
+  }
+
+  function currentMaxCap() public view returns (uint256) {
+    return startMaxCap - donationCount;
   }
 
   /** PROTECTION */

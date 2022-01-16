@@ -121,7 +121,7 @@ contract Clans is ERC1155, EIP712, Ownable {
     uint256 amount,
     uint256 nonce
   ) internal view returns (bytes32) {
-    return _hashTypedDataV4(keccak256(abi.encode(keccak256("MyGoldz(uint256 amount,address account,uint256 nonce)"), amount, account, nonce)));
+    return _hashTypedDataV4(keccak256(abi.encode(keccak256("Claim(uint256 amount,address account,uint256 nonce)"), amount, account, nonce)));
   }
 
   function recoverAddress(
