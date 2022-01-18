@@ -29,6 +29,7 @@ contract Clans is ERC1155, EIP712, Ownable {
   uint256 public updateRankCostMultiplierOxgn = 10;
   uint256 public updateRankCostMultiplierClanToken = 10;
   uint256 public clanRankCap = 5; // to be discussed reduce to 3 or 5
+  uint256 public minClanInColony = 3;
   IOxygen public oxgnToken;
   IY2123 public y2123Nft;
 
@@ -98,6 +99,10 @@ contract Clans is ERC1155, EIP712, Ownable {
     updateRankCostMultiplierClanToken = newVal;
   }
 
+  function setMinClanInColony(uint256 newVal) public onlyOwner {
+    minClanInColony = newVal;
+  }
+
   function shouldChangeLeader(uint256 clanId, uint256 amount) public view returns (bool) {
     return amount > (clanToHighestOwnedCount[clanId] * (changeLeaderPercentage + 100)) / 100;
   }
@@ -148,10 +153,19 @@ contract Clans is ERC1155, EIP712, Ownable {
     _signerAddress = signerAddress;
   }
 
+  event Withdraw(address owner, uint256 amount);
+
+  // How important feature for rewarding extra oxgn to clan leader???
+  // How to calculate extra oxgn token for clan leader, how to track start/stop timeline for clan leader
+  // 20% tax goes randomly to a clanLeader(X number of nft staked percentage chances + min NFT req) wallet address or charity vault
+  // Track how much tax clanLeader earned
+  // Clan A - 90 NFT staked - 90% chance
+  // Clan B - 9 NFT staked - 9% chance
+  // Clan C - 1 NFT staked - 1% chance (eliminate)
   function claim(uint256 oxgnTokenClaim, uint256 oxgnTokenDonate, uint256 clanTokenClaim, bytes calldata signature) external {
     require(oxgnTokenClaim > 0, "empty claim");
     require(_signerAddress == recoverAddress(msg.sender, oxgnTokenClaim, oxgnTokenDonate, clanTokenClaim, accountNonce(msg.sender), signature), "invalid signature");
-    
+
     oxgnToken.mint(msg.sender, oxgnTokenClaim);
     addressToNonce[msg.sender].increment();
     accountToLastWithdraw[msg.sender] = block.timestamp;
@@ -167,12 +181,15 @@ contract Clans is ERC1155, EIP712, Ownable {
   /** CLAN */
 
   function createClan(uint256 colonyId) public {
+    //TODO: Logic Clan leader cant create clan
     require(featureFlagCreateClan, "feature not enabled");
     require(colonyId > 0 && colonyId < 4, "only 3 colonies ever");
+    require(isEntity(msg.sender), "must be in a clan");
     uint256 clanId = clanIdTracker.current();
     clanToColony[clanId] = colonyId;
 
-    if (!admins[_msgSender()] && msg.sender != tx.origin) {
+///***error prone */
+    if (!admins[_msgSender()] && msg.sender != tx.origin) { //rethink tx.orgin here
       uint256 cost = clanId * createClanCostMultiplier;
       if (cost > 0) {
         oxgnToken.burn(_msgSender(), cost);
@@ -182,14 +199,27 @@ contract Clans is ERC1155, EIP712, Ownable {
 
     clanIdTracker.increment();
     emit ClanCreated(clanId, colonyId);
+
+    // Switch to created clan
+    clanStructs[msg.sender].clanId = clanId;
+    clanStructs[msg.sender].updateClanTimestamp = block.timestamp;
+    // Reset rank
+    clanStructs[msg.sender].rank = 0;
+    clanStructs[msg.sender].updateRankTimestamp = block.timestamp;
+
+    // Clan leader assigned to msg.sender thru mint
     _mint(msg.sender, clanId, creatorInitialClanTokens, "");
   }
 
+  // Posibility a colony ends up with 0 clan in it
   function switchColony(uint256 clanId, uint256 colonyId) external {
     require(featureFlagSwitchColony, "feature not enabled");
     require(colonyId > 0 && colonyId < 4, "only 3 colonies ever");
     require(clanId > 0 && clanId < clanIdTracker.current(), "invalid clan");
     require(clanToColony[clanId] != colonyId, "clan already belongs to this colony");
+    uint256 currentColony = clanToColony[clanId];
+    uint256 currentColonyCount = getClanCountInColony(currentColony);
+    require(currentColonyCount > minClanInColony, "colony needs to have at least some clan");
     if (!admins[_msgSender()]) {
       require(clanToHighestOwnedAccount[clanId] == _msgSender(), "clan leader only");
       oxgnToken.burn(_msgSender(), switchColonyCost);
@@ -241,6 +271,19 @@ contract Clans is ERC1155, EIP712, Ownable {
       if (shouldChangeLeader(id, newAmount)) {
         clanToHighestOwnedCount[id] = newAmount;
         clanToHighestOwnedAccount[id] = to;
+        //...
+        //TODO:Logic for tracking address start and stop being a clan leader
+        // Clan ID 1 [addres1(startdate), address2(startdate), address7(startdate)]
+        // Clan ID 2 [addres3(startdate), address9(startdate), address3(startdate), address9(startdate)]
+
+        //TODO: address9(startdate) belong Clan ID 2, can only be leader in Clan ID 2
+
+        // address9(startdate) belong Clan ID 2, but holds the most clan id 1 token, 
+        //TODO: so when switch to clan id 1 should automatically be the new leader
+
+        //TODO: Clan leader cant change to another clan!
+
+        // have to make it - belong in 1 clan at a time and only can be leader in that same clan
       }
     }
 
@@ -342,6 +385,7 @@ contract Clans is ERC1155, EIP712, Ownable {
     require(clanId > 0 && clanId < clanIdTracker.current(), "invalid clan");
     if (isEntity(entityAddress)) {
       //switch clan flow
+      //TODO: Logic clan leader cant change to another clan!
       if (clanStructs[entityAddress].clanId != clanId) {
         uint256 switchClanCost = switchClanCostBase + ((getEntityClanCount(clanId) * switchClanCostMultiplier) / 100000);
         oxgnToken.burn(_msgSender(), switchClanCost);
@@ -455,9 +499,8 @@ contract Clans is ERC1155, EIP712, Ownable {
   mapping(address => uint256) public accountToLastWithdrawAmount;
   EnumerableSet.AddressSet activeContracts;
 
-  event Stake(uint256 tokenId, address contractAddress, address owner);
+  event Stake(uint256 tokenId, address contractAddress, address owner, uint256 clanId);
   event Unstake(uint256 tokenId, address contractAddress, address owner);
-  event Withdraw(address owner, uint256 amount);
 
   modifier ifContractExists(address contractAddress) {
     require(activeContracts.contains(contractAddress), "contract does not exists");
@@ -486,7 +529,7 @@ contract Clans is ERC1155, EIP712, Ownable {
       addressToStakedTokensSet[contractAddress][msg.sender].add(tokenId);
       contractTokenIdToStakedTimestamp[contractAddress][tokenId] = block.timestamp;
 
-      emit Stake(tokenId, contractAddress, msg.sender);
+      emit Stake(tokenId, contractAddress, msg.sender, clanId);
     }
   }
 
