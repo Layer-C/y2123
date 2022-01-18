@@ -8,6 +8,7 @@ import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 import "@openzeppelin/contracts/utils/cryptography/draft-EIP712.sol";
 import "@openzeppelin/contracts/utils/Counters.sol";
 import "./IOxygen.sol";
+import "./IY2123.sol";
 
 //import "hardhat/console.sol";
 
@@ -29,6 +30,7 @@ contract Clans is ERC1155, EIP712, Ownable {
   uint256 public updateRankCostMultiplierClanToken = 10;
   uint256 public clanRankCap = 5; // to be discussed reduce to 3 or 5
   IOxygen public oxgnToken;
+  IY2123 public y2123Nft;
 
   mapping(address => bool) private admins;
   mapping(uint256 => uint256) public clanToHighestOwnedCount;
@@ -102,8 +104,9 @@ contract Clans is ERC1155, EIP712, Ownable {
 
   /** ADMIN */
 
-  function setContracts(address _oxgnToken) external onlyOwner {
+  function setContracts(address _oxgnToken, address _y2123Nft) external onlyOwner {
     oxgnToken = IOxygen(_oxgnToken);
+    y2123Nft = IY2123(_y2123Nft);
   }
 
   function addAdmin(address addr) external onlyOwner {
@@ -118,19 +121,23 @@ contract Clans is ERC1155, EIP712, Ownable {
 
   function _hash(
     address account,
-    uint256 amount,
+    uint256 oxgnTokenClaim,
+    uint256 oxgnTokenDonate,
+    uint256 clanTokenClaim,
     uint256 nonce
   ) internal view returns (bytes32) {
-    return _hashTypedDataV4(keccak256(abi.encode(keccak256("Claim(uint256 amount,address account,uint256 nonce)"), amount, account, nonce)));
+    return _hashTypedDataV4(keccak256(abi.encode(keccak256("Claim(address account,uint256 oxgnTokenClaim,uint256 oxgnTokenDonate,uint256 clanTokenClaim,uint256 nonce)"), account, oxgnTokenClaim, oxgnTokenDonate, clanTokenClaim, nonce)));
   }
 
   function recoverAddress(
     address account,
-    uint256 amount,
+    uint256 oxgnTokenClaim,
+    uint256 oxgnTokenDonate,
+    uint256 clanTokenClaim,
     uint256 nonce,
     bytes calldata signature
   ) public view returns (address) {
-    return ECDSA.recover(_hash(account, amount, nonce), signature);
+    return ECDSA.recover(_hash(account, oxgnTokenClaim, oxgnTokenDonate, clanTokenClaim, nonce), signature);
   }
 
   /** CLAIM & DONATE */
@@ -141,14 +148,15 @@ contract Clans is ERC1155, EIP712, Ownable {
     _signerAddress = signerAddress;
   }
 
-  function claim(uint256 amount, bytes calldata signature) external {
-    require(amount > 0, "you have nothing to withdraw, do not lose your gas");
-    require(_signerAddress == recoverAddress(msg.sender, amount, accountNonce(msg.sender), signature), "invalid signature");
-    oxgnToken.mint(msg.sender, amount);
+  function claim(uint256 oxgnTokenClaim, uint256 oxgnTokenDonate, uint256 clanTokenClaim, bytes calldata signature) external {
+    require(oxgnTokenClaim > 0, "empty claim");
+    require(_signerAddress == recoverAddress(msg.sender, oxgnTokenClaim, oxgnTokenDonate, clanTokenClaim, accountNonce(msg.sender), signature), "invalid signature");
+    
+    oxgnToken.mint(msg.sender, oxgnTokenClaim);
     addressToNonce[msg.sender].increment();
     accountToLastWithdraw[msg.sender] = block.timestamp;
-    accountToLastWithdrawAmount[msg.sender] = amount;
-    emit Withdraw(msg.sender, amount);
+    accountToLastWithdrawAmount[msg.sender] = oxgnTokenClaim;
+    emit Withdraw(msg.sender, oxgnTokenClaim);
   }
 
   function withdrawForDonation() external onlyOwner {
