@@ -159,10 +159,12 @@ contract Clans is ERC1155, EIP712, Ownable {
   // How to calculate extra oxgn token for clan leader, how to track start/stop timeline for clan leader
   // 20% tax goes randomly to a clanLeader(X number of nft staked percentage chances + min NFT req) wallet address or charity vault
   // Track how much tax clanLeader earned
-  // Clan A - 90 NFT staked - 90% chance
-  // Clan B - 9 NFT staked - 9% chance
-  // Clan C - 1 NFT staked - 1% chance (eliminate)
-  function claim(uint256 oxgnTokenClaim, uint256 oxgnTokenDonate, uint256 clanTokenClaim, bytes calldata signature) external {
+  //Game server
+  // Clan R - 90 NFT staked - 90% chance
+  // Clan A - 9 NFT staked - 9% chance
+  // Clan E - 1 NFT staked - 1% chance
+
+  function claim(uint256 oxgnTokenClaim, uint256 oxgnTokenDonate, uint256 clanTokenClaim, address benificiaryOfTax, bytes calldata signature) external {
     require(oxgnTokenClaim > 0, "empty claim");
     require(_signerAddress == recoverAddress(msg.sender, oxgnTokenClaim, oxgnTokenDonate, clanTokenClaim, accountNonce(msg.sender), signature), "invalid signature");
 
@@ -181,7 +183,7 @@ contract Clans is ERC1155, EIP712, Ownable {
   /** CLAN */
 
   function createClan(uint256 colonyId) public {
-    //TODO: Logic Clan leader cant create clan
+    //TODO: Logic Clan leader cant create new clan
     require(featureFlagCreateClan, "feature not enabled");
     require(colonyId > 0 && colonyId < 4, "only 3 colonies ever");
     require(isEntity(msg.sender), "must be in a clan");
@@ -204,7 +206,7 @@ contract Clans is ERC1155, EIP712, Ownable {
     clanStructs[msg.sender].clanId = clanId;
     clanStructs[msg.sender].updateClanTimestamp = block.timestamp;
     // Reset rank
-    clanStructs[msg.sender].rank = 0;
+    clanStructs[msg.sender].rank = 0; //Start from 0 or max rank?
     clanStructs[msg.sender].updateRankTimestamp = block.timestamp;
 
     // Clan leader assigned to msg.sender thru mint

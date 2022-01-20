@@ -222,18 +222,16 @@ describe("Y2123 Contract", function () {
       '0x050144aC034e76FafB6BAf81CB40Aff5991a01Fb',
       '0x8360d6D8A7B00C0564130B0f1FB6e82789415deE'
     ];
-    /*
     for (const account of accounts) {
       list.push(account.address);
     }
     //Inject metamask Test2 account at the top
     list[0] = "0x043f292c37e1De0B53951d1e478b59BC5358F359";
-    */
-    console.log("free mint list is %s", list);
+    //console.log("free mint list is %s", list);
 
     merkleTree = new MerkleTree(list, keccak256, { hashLeaves: true, sortPairs: true });
     root = merkleTree.getHexRoot();
-    console.log("mint root is %s", root);
+    //console.log("mint root is %s", root);
     await yContract.setFreeRoot(root);
 
     let proof = merkleTree.getHexProof(keccak256(accounts[0].address));
