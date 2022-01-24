@@ -28,7 +28,7 @@ contract Clans is ERC1155, EIP712, Ownable {
   uint256 public switchClanCostMultiplier = 100000; // divides 100000 (5 decimal points)
   uint256 public updateRankCostMultiplierOxgn = 10;
   uint256 public updateRankCostMultiplierClanToken = 10;
-  uint256 public clanRankCap = 5; // to be discussed reduce to 3 or 5
+  uint256 public clanRankCap = 5;
   uint256 public minClanInColony = 3;
   IOxygen public oxgnToken;
   IY2123 public y2123Nft;
@@ -38,11 +38,13 @@ contract Clans is ERC1155, EIP712, Ownable {
   mapping(uint256 => address) public clanToHighestOwnedAccount;
   mapping(uint256 => uint256) public clanToColony;
 
-  event ClanCreated(uint256 indexed clanId, uint256 indexed colonyId);
-  event SwitchColony(uint256 indexed clanId, uint256 indexed colonyId);
+  event ClanCreated(address leader, uint256 indexed clanId, uint256 indexed colonyId);
+  event SwitchColony(address leader, uint256 indexed clanId, uint256 indexed colonyId);
+  event ChangeLeader(address oldLeader, address newLeader, uint256 indexed clanId, uint256 clanTokens);
 
   constructor(string memory _baseURI) ERC1155(_baseURI) EIP712("y2123", "1.0") {
     baseURI = _baseURI;
+    addAdmin(_msgSender());
     clanIdTracker.increment(); // start with clanId = 1
     createClan(1); // clanId = 1 in colonyId = 1
     createClan(2); // clanId = 2 in colonyId = 2
@@ -103,7 +105,21 @@ contract Clans is ERC1155, EIP712, Ownable {
     minClanInColony = newVal;
   }
 
-  function shouldChangeLeader(uint256 clanId, uint256 amount) public view returns (bool) {
+  function shouldChangeLeader(
+    address member,
+    uint256 clanId,
+    uint256 amount
+  ) public view returns (bool) {
+    //Check if already clan leader of this clan
+    if (clanToHighestOwnedAccount[clanId] == member) {
+      return false;
+    }
+
+    //Can't become leader if not in this clan
+    if (clanStructs[member].clanId != clanId) {
+      return false;
+    }
+
     return amount > (clanToHighestOwnedCount[clanId] * (changeLeaderPercentage + 100)) / 100;
   }
 
@@ -114,12 +130,12 @@ contract Clans is ERC1155, EIP712, Ownable {
     y2123Nft = IY2123(_y2123Nft);
   }
 
-  function addAdmin(address addr) external onlyOwner {
+  function addAdmin(address addr) public onlyOwner {
     require(addr != address(0), "empty address");
     admins[addr] = true;
   }
 
-  function removeAdmin(address addr) external onlyOwner {
+  function removeAdmin(address addr) public onlyOwner {
     require(addr != address(0), "empty address");
     admins[addr] = false;
   }
@@ -131,7 +147,19 @@ contract Clans is ERC1155, EIP712, Ownable {
     uint256 clanTokenClaim,
     uint256 nonce
   ) internal view returns (bytes32) {
-    return _hashTypedDataV4(keccak256(abi.encode(keccak256("Claim(address account,uint256 oxgnTokenClaim,uint256 oxgnTokenDonate,uint256 clanTokenClaim,uint256 nonce)"), account, oxgnTokenClaim, oxgnTokenDonate, clanTokenClaim, nonce)));
+    return
+      _hashTypedDataV4(
+        keccak256(
+          abi.encode(
+            keccak256("Claim(address account,uint256 oxgnTokenClaim,uint256 oxgnTokenDonate,uint256 clanTokenClaim,uint256 nonce)"),
+            account,
+            oxgnTokenClaim,
+            oxgnTokenDonate,
+            clanTokenClaim,
+            nonce
+          )
+        )
+      );
   }
 
   function recoverAddress(
@@ -153,45 +181,55 @@ contract Clans is ERC1155, EIP712, Ownable {
     _signerAddress = signerAddress;
   }
 
-  event Withdraw(address owner, uint256 amount);
+  event Claim(address owner, uint256 oxgnTokenClaim, uint256 oxgnTokenDonate, uint256 clanId, uint256 clanTokenClaim, address benificiaryOfTax, uint256 oxgnTokenTax);
 
-  // How important feature for rewarding extra oxgn to clan leader???
-  // How to calculate extra oxgn token for clan leader, how to track start/stop timeline for clan leader
-  // 20% tax goes randomly to a clanLeader(X number of nft staked percentage chances + min NFT req) wallet address or charity vault
-  // Track how much tax clanLeader earned
-  //Game server
-  // Clan R - 90 NFT staked - 90% chance
-  // Clan A - 9 NFT staked - 9% chance
-  // Clan E - 1 NFT staked - 1% chance
-
-  function claim(uint256 oxgnTokenClaim, uint256 oxgnTokenDonate, uint256 clanTokenClaim, address benificiaryOfTax, bytes calldata signature) external {
+  // % tax goes randomly to a Clan Leader (based on X number of nft staked, has min NFT req) or charity vault
+  function claim(
+    uint256 oxgnTokenClaim,
+    uint256 oxgnTokenDonate,
+    uint256 clanId,
+    uint256 clanTokenClaim,
+    address benificiaryOfTax,
+    uint256 oxgnTokenTax,
+    bytes calldata signature
+  ) external {
     require(oxgnTokenClaim > 0, "empty claim");
-    require(_signerAddress == recoverAddress(msg.sender, oxgnTokenClaim, oxgnTokenDonate, clanTokenClaim, accountNonce(msg.sender), signature), "invalid signature");
+    require(_signerAddress == recoverAddress(_msgSender(), oxgnTokenClaim, oxgnTokenDonate, clanTokenClaim, accountNonce(_msgSender()), signature), "invalid signature");
 
-    oxgnToken.mint(msg.sender, oxgnTokenClaim);
-    addressToNonce[msg.sender].increment();
-    accountToLastWithdraw[msg.sender] = block.timestamp;
-    accountToLastWithdrawAmount[msg.sender] = oxgnTokenClaim;
-    emit Withdraw(msg.sender, oxgnTokenClaim);
+    oxgnToken.mint(_msgSender(), oxgnTokenClaim);
+    addressToNonce[_msgSender()].increment();
+    accountToLastClaim[_msgSender()] = block.timestamp;
+    accountToLastClaimAmount[_msgSender()] = oxgnTokenClaim;
+
+    if (oxgnTokenDonate > 0) {
+      oxgnToken.mint(address(this), oxgnTokenDonate);
+    }
+    if (benificiaryOfTax != address(0) && oxgnTokenTax > 0) {
+      oxgnToken.mint(benificiaryOfTax, oxgnTokenTax);
+    }
+    if (clanId > 0 && clanId < clanIdTracker.current() && clanTokenClaim > 0) {
+      _mint(_msgSender(), clanId, clanTokenClaim, "");
+    }
+
+    emit Claim(_msgSender(), oxgnTokenClaim, oxgnTokenDonate, clanId, clanTokenClaim, benificiaryOfTax, oxgnTokenTax);
   }
 
   function withdrawForDonation() external onlyOwner {
     uint256 amount = oxgnToken.balanceOf(address(this));
-    oxgnToken.transfer(msg.sender, amount);
+    oxgnToken.transfer(_msgSender(), amount);
   }
 
   /** CLAN */
 
   function createClan(uint256 colonyId) public {
-    //TODO: Logic Clan leader cant create new clan
     require(featureFlagCreateClan, "feature not enabled");
     require(colonyId > 0 && colonyId < 4, "only 3 colonies ever");
-    require(isEntity(msg.sender), "must be in a clan");
-    uint256 clanId = clanIdTracker.current();
-    clanToColony[clanId] = colonyId;
+    require(!isClanLeader(_msgSender()), "clan leader can't create new clan");
 
-///***error prone */
-    if (!admins[_msgSender()] && msg.sender != tx.origin) { //rethink tx.orgin here
+    uint256 clanId = clanIdTracker.current();
+    if (!admins[_msgSender()]) {
+      require(isEntity(_msgSender()), "must be in a clan");
+
       uint256 cost = clanId * createClanCostMultiplier;
       if (cost > 0) {
         oxgnToken.burn(_msgSender(), cost);
@@ -199,21 +237,21 @@ contract Clans is ERC1155, EIP712, Ownable {
       }
     }
 
+    clanToColony[clanId] = colonyId;
     clanIdTracker.increment();
-    emit ClanCreated(clanId, colonyId);
+    emit ClanCreated(_msgSender(), clanId, colonyId);
 
     // Switch to created clan
-    clanStructs[msg.sender].clanId = clanId;
-    clanStructs[msg.sender].updateClanTimestamp = block.timestamp;
+    clanStructs[_msgSender()].clanId = clanId;
+    clanStructs[_msgSender()].updateClanTimestamp = block.timestamp;
     // Reset rank
-    clanStructs[msg.sender].rank = 0; //Start from 0 or max rank?
-    clanStructs[msg.sender].updateRankTimestamp = block.timestamp;
+    clanStructs[_msgSender()].rank = 0; //Start from 0 or max rank?
+    clanStructs[_msgSender()].updateRankTimestamp = block.timestamp;
 
-    // Clan leader assigned to msg.sender thru mint
-    _mint(msg.sender, clanId, creatorInitialClanTokens, "");
+    // Clan leader assigned to _msgSender() thru mint
+    _mint(_msgSender(), clanId, creatorInitialClanTokens, "");
   }
 
-  // Posibility a colony ends up with 0 clan in it
   function switchColony(uint256 clanId, uint256 colonyId) external {
     require(featureFlagSwitchColony, "feature not enabled");
     require(colonyId > 0 && colonyId < 4, "only 3 colonies ever");
@@ -228,7 +266,7 @@ contract Clans is ERC1155, EIP712, Ownable {
       oxgnToken.updateOriginAccess();
     }
 
-    emit SwitchColony(clanId, colonyId);
+    emit SwitchColony(_msgSender(), clanId, colonyId);
     clanToColony[clanId] = colonyId;
   }
 
@@ -270,22 +308,14 @@ contract Clans is ERC1155, EIP712, Ownable {
       uint256 newAmount = balanceOf(to, id) + amounts[i];
 
       //console.log("After transfer, %s will have %s tokens.", to, newAmount);
-      if (shouldChangeLeader(id, newAmount)) {
+      // If an account in ClanID1, but holds the highest ClanID2Token, upon switch to ClanID2 will only be the new leader after performing a buy/sell/transfer ClanID2Token transaction
+      if (shouldChangeLeader(to, id, newAmount)) {
+        // Tracking address start and stop being a clan leader
+        address oldLeader = clanToHighestOwnedAccount[id];
+        emit ChangeLeader(oldLeader, to, id, newAmount);
+
         clanToHighestOwnedCount[id] = newAmount;
         clanToHighestOwnedAccount[id] = to;
-        //...
-        //TODO:Logic for tracking address start and stop being a clan leader
-        // Clan ID 1 [addres1(startdate), address2(startdate), address7(startdate)]
-        // Clan ID 2 [addres3(startdate), address9(startdate), address3(startdate), address9(startdate)]
-
-        //TODO: address9(startdate) belong Clan ID 2, can only be leader in Clan ID 2
-
-        // address9(startdate) belong Clan ID 2, but holds the most clan id 1 token, 
-        //TODO: so when switch to clan id 1 should automatically be the new leader
-
-        //TODO: Clan leader cant change to another clan!
-
-        // have to make it - belong in 1 clan at a time and only can be leader in that same clan
       }
     }
 
@@ -383,11 +413,22 @@ contract Clans is ERC1155, EIP712, Ownable {
     return clanStructs[entityAddress];
   }
 
+  function getClanLeader(uint256 clanId) public view returns (address entityAddress) {
+    return clanToHighestOwnedAccount[clanId];
+  }
+
+  function isClanLeader(address entityAddress) public view returns (bool) {
+    if (clanStructs[entityAddress].isEntity) {
+      return clanToHighestOwnedAccount[clanStructs[entityAddress].clanId] == entityAddress;
+    }
+    return false;
+  }
+
   function updateEntityClan(address entityAddress, uint256 clanId) internal {
     require(clanId > 0 && clanId < clanIdTracker.current(), "invalid clan");
+
     if (isEntity(entityAddress)) {
       //switch clan flow
-      //TODO: Logic clan leader cant change to another clan!
       if (clanStructs[entityAddress].clanId != clanId) {
         uint256 switchClanCost = switchClanCostBase + ((getEntityClanCount(clanId) * switchClanCostMultiplier) / 100000);
         oxgnToken.burn(_msgSender(), switchClanCost);
@@ -497,8 +538,8 @@ contract Clans is ERC1155, EIP712, Ownable {
   mapping(address => mapping(uint256 => uint256)) contractTokenIdToStakedTimestamp;
   mapping(address => StakedContract) public contracts;
   mapping(address => Counters.Counter) addressToNonce;
-  mapping(address => uint256) public accountToLastWithdraw;
-  mapping(address => uint256) public accountToLastWithdrawAmount;
+  mapping(address => uint256) public accountToLastClaim;
+  mapping(address => uint256) public accountToLastClaimAmount;
   EnumerableSet.AddressSet activeContracts;
 
   event Stake(uint256 tokenId, address contractAddress, address owner, uint256 clanId);
@@ -510,7 +551,7 @@ contract Clans is ERC1155, EIP712, Ownable {
   }
 
   modifier incrementNonce() {
-    addressToNonce[msg.sender].increment();
+    addressToNonce[_msgSender()].increment();
     _;
   }
 
@@ -521,17 +562,20 @@ contract Clans is ERC1155, EIP712, Ownable {
   ) external incrementNonce {
     StakedContract storage _contract = contracts[contractAddress];
     require(_contract.active, "token contract is not active");
+    if (isClanLeader(_msgSender())) {
+      require(clanStructs[_msgSender()].clanId == clanId, "clan leader can't switch clans!");
+    }
 
-    updateEntityClan(msg.sender, clanId);
+    updateEntityClan(_msgSender(), clanId);
 
     for (uint256 i = 0; i < tokenIds.length; i++) {
       uint256 tokenId = tokenIds[i];
-      contractTokenIdToOwner[contractAddress][tokenId] = msg.sender;
-      _contract.instance.transferFrom(msg.sender, address(this), tokenId);
-      addressToStakedTokensSet[contractAddress][msg.sender].add(tokenId);
+      contractTokenIdToOwner[contractAddress][tokenId] = _msgSender();
+      _contract.instance.transferFrom(_msgSender(), address(this), tokenId);
+      addressToStakedTokensSet[contractAddress][_msgSender()].add(tokenId);
       contractTokenIdToStakedTimestamp[contractAddress][tokenId] = block.timestamp;
 
-      emit Stake(tokenId, contractAddress, msg.sender, clanId);
+      emit Stake(tokenId, contractAddress, _msgSender(), clanId);
     }
   }
 
@@ -540,14 +584,14 @@ contract Clans is ERC1155, EIP712, Ownable {
 
     for (uint256 i = 0; i < tokenIds.length; i++) {
       uint256 tokenId = tokenIds[i];
-      require(addressToStakedTokensSet[contractAddress][msg.sender].contains(tokenId), "token is not staked");
+      require(addressToStakedTokensSet[contractAddress][_msgSender()].contains(tokenId), "token is not staked");
 
       delete contractTokenIdToOwner[contractAddress][tokenId];
-      _contract.instance.transferFrom(address(this), msg.sender, tokenId);
-      addressToStakedTokensSet[contractAddress][msg.sender].remove(tokenId);
+      _contract.instance.transferFrom(address(this), _msgSender(), tokenId);
+      addressToStakedTokensSet[contractAddress][_msgSender()].remove(tokenId);
       delete contractTokenIdToStakedTimestamp[contractAddress][tokenId];
 
-      emit Unstake(tokenId, contractAddress, msg.sender);
+      emit Unstake(tokenId, contractAddress, _msgSender());
     }
   }
 
@@ -587,9 +631,9 @@ contract Clans is ERC1155, EIP712, Ownable {
   uint256[] public tankPrices = [50 ether, 100 ether, 200 ether, 400 ether, 800 ether, 1600 ether, 3200 ether, 6400 ether, 12800 ether];
 
   function upgradeTank() external {
-    require(tankLevelOfOwner(msg.sender) < tankPrices.length + 1, "tank is at max level");
-    oxgnToken.burn(msg.sender, nextLevelTankPrice(msg.sender));
-    _addressToTankLevel[msg.sender]++;
+    require(tankLevelOfOwner(_msgSender()) < tankPrices.length + 1, "tank is at max level");
+    oxgnToken.burn(_msgSender(), nextLevelTankPrice(_msgSender()));
+    _addressToTankLevel[_msgSender()]++;
   }
 
   function upgradeTank(address receiver) external onlyOwner {

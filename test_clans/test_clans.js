@@ -16,7 +16,7 @@ describe("Clans Contract", function () {
     contract = await ethers.getContractFactory("Clans");
     cContract = await contract.deploy("");
     await cContract.deployed();
-    await cContract.setContracts(oContract.address);
+    await cContract.setContracts(oContract.address, yContract.address);
 
     await oContract.addAdmin(cContract.address);
 
@@ -46,9 +46,12 @@ describe("Clans Contract", function () {
     expect(await cContract.clanToHighestOwnedCount(clanId)).to.equal(100);
     expect(await cContract.clanToHighestOwnedAccount(clanId)).to.equal(accounts[0].address);
 
-    expect(await cContract.shouldChangeLeader(clanId, 100)).to.equal(false);
-    expect(await cContract.shouldChangeLeader(clanId, 110)).to.equal(false);
-    expect(await cContract.shouldChangeLeader(clanId, 111)).to.equal(true);
+    expect(await cContract.shouldChangeLeader(accounts[0].address, clanId, 100)).to.equal(false);
+    expect(await cContract.shouldChangeLeader(accounts[0].address, clanId, 110)).to.equal(false);
+    //Clan leader can't be leader  again
+    expect(await cContract.shouldChangeLeader(accounts[0].address, clanId, 111)).to.equal(false);
+    //Must be in that clan to be leader
+    expect(await cContract.shouldChangeLeader(accounts[1].address, clanId, 111)).to.equal(false);
 
     await cContract.safeTransferFrom(accounts[0].address, accounts[1].address, clanId, 100, []);
     expect(await cContract.clanToHighestOwnedCount(clanId)).to.equal(100);
@@ -71,8 +74,14 @@ describe("Clans Contract", function () {
     await yContract.addAdmin(cContract.address);
     await cContract.addContract(yContract.address);
     await cContract.stake(yContract.address, [0, 1, 2], 1);
-    await cContract.connect(accounts[1]).stake(yContract.address, [3, 4, 5], 1);
 
+    await cContract.connect(accounts[1]).stake(yContract.address, [3, 4], 4);
+    //Elligible to be leader now that have changed clan
+    expect(await cContract.shouldChangeLeader(accounts[1].address, clanId, 111)).to.equal(true);
+
+    //Change clan by staking
+    await oContract.mint(accounts[1].address, 1000); // oxgn needed to change clan
+    await cContract.connect(accounts[1]).stake(yContract.address, [5], 1);
     const acc = await cContract.getAccountsInClan(1);
     expect(acc[0]).to.eql(accounts[0].address);
     expect(acc[1]).to.eql(accounts[1].address);

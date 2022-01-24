@@ -20,10 +20,12 @@ contract Oxygen is IOxygen, ERC20, Ownable {
   }
 
   function addAdmin(address addr) external onlyOwner {
+    require(addr != address(0), "empty address");
     admins[addr] = true;
   }
 
   function removeAdmin(address addr) external onlyOwner {
+    require(addr != address(0), "empty address");
     admins[addr] = false;
   }
 
