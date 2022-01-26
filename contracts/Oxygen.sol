@@ -55,11 +55,6 @@ contract Oxygen is IOxygen, ERC20, Ownable {
     _;
   }
 
-  function updateOriginAccess() external override {
-    require(admins[_msgSender()], "Only admins can call this");
-    lastWrite[tx.origin] = block.number;
-  }
-
   function balanceOf(address account) public view virtual override(ERC20, IOxygen) disallowIfStateIsChanging returns (uint256) {
     require(admins[_msgSender()] || lastWrite[account] < block.number, "state is changing");
     return super.balanceOf(account);

@@ -7,12 +7,13 @@ import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 import "@openzeppelin/contracts/utils/cryptography/draft-EIP712.sol";
 import "@openzeppelin/contracts/utils/Counters.sol";
+import "./IClans.sol";
 import "./IOxygen.sol";
 import "./IY2123.sol";
 
 //import "hardhat/console.sol";
 
-contract Clans is ERC1155, EIP712, Ownable {
+contract Clans is IClans, ERC1155, EIP712, Ownable {
   using Strings for uint256;
   string private baseURI;
   using Counters for Counters.Counter;
@@ -144,21 +145,42 @@ contract Clans is ERC1155, EIP712, Ownable {
     address account,
     uint256 oxgnTokenClaim,
     uint256 oxgnTokenDonate,
+    uint256 clanId,
     uint256 clanTokenClaim,
+    address benificiaryOfTax,
+    uint256 oxgnTokenTax,
     uint256 nonce
   ) internal view returns (bytes32) {
-    return _hashTypedDataV4(keccak256(abi.encode(keccak256("Claim(address account,uint256 oxgnTokenClaim,uint256 oxgnTokenDonate,uint256 clanTokenClaim,uint256 nonce)"), account, oxgnTokenClaim, oxgnTokenDonate, clanTokenClaim, nonce)));
+    return
+      _hashTypedDataV4(
+        keccak256(
+          abi.encode(
+            keccak256("Claim(address account,uint256 oxgnTokenClaim,uint256 oxgnTokenDonate,uint256 clanId,uint256 clanTokenClaim,address benificiaryOfTax,uint256 oxgnTokenTax,uint256 nonce)"),
+            account,
+            oxgnTokenClaim,
+            oxgnTokenDonate,
+            clanId,
+            clanTokenClaim,
+            benificiaryOfTax,
+            oxgnTokenTax,
+            nonce
+          )
+        )
+      );
   }
 
   function recoverAddress(
     address account,
     uint256 oxgnTokenClaim,
     uint256 oxgnTokenDonate,
+    uint256 clanId,
     uint256 clanTokenClaim,
+    address benificiaryOfTax,
+    uint256 oxgnTokenTax,
     uint256 nonce,
     bytes calldata signature
   ) public view returns (address) {
-    return ECDSA.recover(_hash(account, oxgnTokenClaim, oxgnTokenDonate, clanTokenClaim, nonce), signature);
+    return ECDSA.recover(_hash(account, oxgnTokenClaim, oxgnTokenDonate, clanId, clanTokenClaim, benificiaryOfTax, oxgnTokenTax, nonce), signature);
   }
 
   /** CLAIM & DONATE */
@@ -169,9 +191,23 @@ contract Clans is ERC1155, EIP712, Ownable {
     _signerAddress = signerAddress;
   }
 
-  event Claim(address owner, uint256 oxgnTokenClaim, uint256 oxgnTokenDonate, uint256 clanId, uint256 clanTokenClaim, address benificiaryOfTax, uint256 oxgnTokenTax);
+  struct ClaimInfo {
+    uint256 oxgnTokenClaim;
+    uint256 oxgnTokenDonate;
+    uint256 clanId;
+    uint256 clanTokenClaim;
+    address benificiaryOfTax;
+    uint256 oxgnTokenTax;
+    uint256 nonce;
+    uint256 blocktime;
+  }
+  mapping(address => ClaimInfo) public accountToLastClaim;
 
-  // % tax goes randomly to a Clan Leader (based on X number of nft staked, has min NFT req) or charity vault
+  event Claim(address account, uint256 oxgnTokenClaim, uint256 oxgnTokenDonate, uint256 clanId, uint256 clanTokenClaim, address benificiaryOfTax, uint256 oxgnTokenTax);
+
+  // % tax goes randomly to a Clan Leader (based on X number of nft staked, has min NFT req)
+  // or tech patent owner
+  // or charity vault
   function claim(
     uint256 oxgnTokenClaim,
     uint256 oxgnTokenDonate,
@@ -182,12 +218,11 @@ contract Clans is ERC1155, EIP712, Ownable {
     bytes calldata signature
   ) external {
     require(oxgnTokenClaim > 0, "empty claim");
-    require(_signerAddress == recoverAddress(_msgSender(), oxgnTokenClaim, oxgnTokenDonate, clanTokenClaim, accountNonce(_msgSender()), signature), "invalid signature");
+    require(_signerAddress == recoverAddress(_msgSender(), oxgnTokenClaim, oxgnTokenDonate, clanId, clanTokenClaim, benificiaryOfTax, oxgnTokenTax, accountNonce(_msgSender()), signature), "invalid signature");
 
     oxgnToken.mint(_msgSender(), oxgnTokenClaim);
     addressToNonce[_msgSender()].increment();
-    accountToLastClaim[_msgSender()] = block.timestamp;
-    accountToLastClaimAmount[_msgSender()] = oxgnTokenClaim;
+    accountToLastClaim[_msgSender()] = ClaimInfo(oxgnTokenClaim, oxgnTokenDonate, clanId, clanTokenClaim, benificiaryOfTax, oxgnTokenTax, accountNonce(_msgSender()), block.timestamp);
 
     if (oxgnTokenDonate > 0) {
       oxgnToken.mint(address(this), oxgnTokenDonate);
@@ -220,7 +255,6 @@ contract Clans is ERC1155, EIP712, Ownable {
       uint256 cost = getCreateClanCost();
       if (cost > 0) {
         oxgnToken.burn(_msgSender(), cost);
-        oxgnToken.updateOriginAccess();
       }
     }
 
@@ -251,7 +285,6 @@ contract Clans is ERC1155, EIP712, Ownable {
     if (!admins[_msgSender()]) {
       require(clanToHighestOwnedAccount[clanId] == _msgSender(), "clan leader only");
       oxgnToken.burn(_msgSender(), switchColonyCost);
-      oxgnToken.updateOriginAccess();
     }
 
     emit SwitchColony(_msgSender(), clanId, colonyId);
@@ -432,7 +465,6 @@ contract Clans is ERC1155, EIP712, Ownable {
       if (clanStructs[entityAddress].clanId != clanId) {
         uint256 switchClanCost = getSwitchClanCost(clanId);
         oxgnToken.burn(_msgSender(), switchClanCost);
-        oxgnToken.updateOriginAccess();
 
         clanStructs[entityAddress].clanId = clanId;
         clanStructs[entityAddress].updateClanTimestamp = block.timestamp;
@@ -462,7 +494,6 @@ contract Clans is ERC1155, EIP712, Ownable {
       uint256 costOxgn = clanStructs[entityAddress].rank * updateRankCostMultiplierOxgn;
       if (costOxgn > 0) {
         oxgnToken.burn(_msgSender(), costOxgn);
-        oxgnToken.updateOriginAccess();
       }
       uint256 costClanToken = clanStructs[entityAddress].rank * updateRankCostMultiplierClanToken;
       if (costClanToken > 0) {
@@ -485,7 +516,6 @@ contract Clans is ERC1155, EIP712, Ownable {
       uint256 costOxgn = clanStructs[entityAddress].rank * updateRankCostMultiplierOxgn;
       if (costOxgn > 0) {
         oxgnToken.burn(_msgSender(), costOxgn);
-        oxgnToken.updateOriginAccess();
       }
       uint256 costClanToken = clanStructs[entityAddress].rank * updateRankCostMultiplierClanToken;
       if (costClanToken > 0) {
@@ -510,7 +540,6 @@ contract Clans is ERC1155, EIP712, Ownable {
       uint256 costOxgn = clanRankCap * updateRankCostMultiplierOxgn;
       if (costOxgn > 0) {
         oxgnToken.burn(_msgSender(), costOxgn);
-        oxgnToken.updateOriginAccess();
       }
       uint256 costClanToken = clanRankCap * updateRankCostMultiplierClanToken;
       if (costClanToken > 0) {
@@ -538,8 +567,7 @@ contract Clans is ERC1155, EIP712, Ownable {
   mapping(address => mapping(uint256 => uint256)) contractTokenIdToStakedTimestamp;
   mapping(address => StakedContract) public contracts;
   mapping(address => Counters.Counter) addressToNonce;
-  mapping(address => uint256) public accountToLastClaim;
-  mapping(address => uint256) public accountToLastClaimAmount;
+
   EnumerableSet.AddressSet activeContracts;
 
   event Stake(uint256 tokenId, address contractAddress, address owner, uint256 clanId);
