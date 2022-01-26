@@ -10,6 +10,7 @@ describe("Clans Contract", function () {
     await yContract.deployed();
 
     contract = await ethers.getContractFactory("Oxygen");
+
     oContract = await contract.deploy();
     await oContract.deployed();
 
@@ -69,7 +70,7 @@ describe("Clans Contract", function () {
       .to.emit(yContract, "Transfer")
       .withArgs(ethers.constants.AddressZero, accounts[0].address, tokenId);
 
-    await yContract.connect(accounts[1]).paidMint(3, [], { value: BigInt(nftPrice * 3) })
+    await yContract.connect(accounts[1]).paidMint(3, [], { value: BigInt(nftPrice * 3) });
 
     await yContract.addAdmin(cContract.address);
     await cContract.addContract(yContract.address);

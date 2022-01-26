@@ -25,7 +25,7 @@ contract Clans is ERC1155, EIP712, Ownable {
   uint256 public createClanCostMultiplier = 100;
   uint256 public switchColonyCost = 10000;
   uint256 public switchClanCostBase = 10;
-  uint256 public switchClanCostMultiplier = 100000; // divides 100000 (5 decimal points)
+  uint256 public switchClanCostMultiplier = 100000; // (5 decimal points)
   uint256 public updateRankCostMultiplierOxgn = 10;
   uint256 public updateRankCostMultiplierClanToken = 10;
   uint256 public clanRankCap = 5;
@@ -110,7 +110,7 @@ contract Clans is ERC1155, EIP712, Ownable {
     uint256 clanId,
     uint256 amount
   ) public view returns (bool) {
-    //Check if already clan leader of this clan
+    //Check if already clan leader for this clan
     if (clanToHighestOwnedAccount[clanId] == member) {
       return false;
     }
@@ -120,7 +120,7 @@ contract Clans is ERC1155, EIP712, Ownable {
       return false;
     }
 
-    return amount > (clanToHighestOwnedCount[clanId] * (changeLeaderPercentage + 100)) / 100;
+    return amount > getChangeClanLeaderThreshold(clanId);
   }
 
   /** ADMIN */
@@ -147,19 +147,7 @@ contract Clans is ERC1155, EIP712, Ownable {
     uint256 clanTokenClaim,
     uint256 nonce
   ) internal view returns (bytes32) {
-    return
-      _hashTypedDataV4(
-        keccak256(
-          abi.encode(
-            keccak256("Claim(address account,uint256 oxgnTokenClaim,uint256 oxgnTokenDonate,uint256 clanTokenClaim,uint256 nonce)"),
-            account,
-            oxgnTokenClaim,
-            oxgnTokenDonate,
-            clanTokenClaim,
-            nonce
-          )
-        )
-      );
+    return _hashTypedDataV4(keccak256(abi.encode(keccak256("Claim(address account,uint256 oxgnTokenClaim,uint256 oxgnTokenDonate,uint256 clanTokenClaim,uint256 nonce)"), account, oxgnTokenClaim, oxgnTokenDonate, clanTokenClaim, nonce)));
   }
 
   function recoverAddress(
@@ -226,17 +214,17 @@ contract Clans is ERC1155, EIP712, Ownable {
     require(colonyId > 0 && colonyId < 4, "only 3 colonies ever");
     require(!isClanLeader(_msgSender()), "clan leader can't create new clan");
 
-    uint256 clanId = clanIdTracker.current();
     if (!admins[_msgSender()]) {
       require(isEntity(_msgSender()), "must be in a clan");
 
-      uint256 cost = clanId * createClanCostMultiplier;
+      uint256 cost = getCreateClanCost();
       if (cost > 0) {
         oxgnToken.burn(_msgSender(), cost);
         oxgnToken.updateOriginAccess();
       }
     }
 
+    uint256 clanId = clanIdTracker.current();
     clanToColony[clanId] = colonyId;
     clanIdTracker.increment();
     emit ClanCreated(_msgSender(), clanId, colonyId);
@@ -424,13 +412,25 @@ contract Clans is ERC1155, EIP712, Ownable {
     return false;
   }
 
+  function getChangeClanLeaderThreshold(uint256 clanId) public view returns (uint256 amount) {
+    return (clanToHighestOwnedCount[clanId] * (changeLeaderPercentage + 100)) / 100;
+  }
+
+  function getCreateClanCost() public view returns (uint256 amount) {
+    return clanIdTracker.current() * createClanCostMultiplier;
+  }
+
+  function getSwitchClanCost(uint256 clanId) public view returns (uint256 amount) {
+    return switchClanCostBase + ((getEntityClanCount(clanId) * switchClanCostMultiplier) / 100000);
+  }
+
   function updateEntityClan(address entityAddress, uint256 clanId) internal {
     require(clanId > 0 && clanId < clanIdTracker.current(), "invalid clan");
 
     if (isEntity(entityAddress)) {
       //switch clan flow
       if (clanStructs[entityAddress].clanId != clanId) {
-        uint256 switchClanCost = switchClanCostBase + ((getEntityClanCount(clanId) * switchClanCostMultiplier) / 100000);
+        uint256 switchClanCost = getSwitchClanCost(clanId);
         oxgnToken.burn(_msgSender(), switchClanCost);
         oxgnToken.updateOriginAccess();
 

@@ -187,7 +187,7 @@ contract Y2123 is IY2123, ERC721Enumerable, Ownable, Pausable, ReentrancyGuard {
   }
 
   // ONLY 1 free mint per address throughout all collections
-  function freeMint(bytes32[] memory proof) public payable nonReentrant {
+  function freeMint(bytes32[] memory proof) public nonReentrant {
     uint256 totalMinted = totalSupply();
 
     require(msg.sender == tx.origin);

@@ -1,9 +1,18 @@
 {
   "overrides": [
     {
-      "files": "*.{sol,ts}",
+      "files": "*.sol",
       "options": {
-        "printWidth": 200,
+        "proseWrap": "never",
+        "printWidth": 300,
+        "tabWidth": 2
+      }
+    },
+    {
+      "files": "*.js",
+      "options": {
+        "proseWrap": "never",
+        "printWidth": 300,
         "tabWidth": 2
       }
     }
