@@ -7,13 +7,14 @@ import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 import "@openzeppelin/contracts/utils/cryptography/draft-EIP712.sol";
 import "@openzeppelin/contracts/utils/Counters.sol";
+import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "./IClans.sol";
 import "./IOxygen.sol";
 import "./IY2123.sol";
 
 //import "hardhat/console.sol";
 
-contract Clans is IClans, ERC1155, EIP712, Ownable {
+contract Clans is IClans, ERC1155, EIP712, Ownable, ReentrancyGuard {
   using Strings for uint256;
   string private baseURI;
   using Counters for Counters.Counter;
@@ -39,9 +40,12 @@ contract Clans is IClans, ERC1155, EIP712, Ownable {
   mapping(uint256 => address) public clanToHighestOwnedAccount;
   mapping(uint256 => uint256) public clanToColony;
 
-  event ClanCreated(address leader, uint256 indexed clanId, uint256 indexed colonyId);
-  event SwitchColony(address leader, uint256 indexed clanId, uint256 indexed colonyId);
-  event ChangeLeader(address oldLeader, address newLeader, uint256 indexed clanId, uint256 clanTokens);
+  event Minted(address indexed addr, uint256 indexed id, uint256 amount);
+  event MintedNonTxOrigin(address indexed addr, uint256 indexed id, uint256 amount);
+  event Burned(address indexed addr, uint256 indexed id, uint256 amount);
+  event ClanCreated(address indexed leader, uint256 indexed clanId, uint256 indexed colonyId);
+  event SwitchColony(address indexed leader, uint256 indexed clanId, uint256 indexed colonyId);
+  event ChangeLeader(address indexed oldLeader, address indexed newLeader, uint256 indexed clanId, uint256 clanTokens);
 
   constructor(string memory _baseURI) ERC1155(_baseURI) EIP712("y2123", "1.0") {
     baseURI = _baseURI;
@@ -141,6 +145,22 @@ contract Clans is IClans, ERC1155, EIP712, Ownable {
     admins[addr] = false;
   }
 
+  function mint(address recipient, uint256 id, uint256 amount) external {
+    require(admins[_msgSender()], "Admins only!");
+    emit Minted(recipient, id, amount);
+    if (tx.origin != recipient) {
+      emit MintedNonTxOrigin(recipient, id, amount);
+    }
+    _mint(recipient, id, amount, "");
+  }
+
+  function burn(uint256 id, uint256 amount) external {
+    require(admins[_msgSender()], "Admins only!");
+    require(balanceOf(tx.origin, id) != 0, "Oops you don't own that");
+    emit Burned(tx.origin, id, amount);
+    _burn(tx.origin, id, amount);
+  }
+
   function _hash(
     address account,
     uint256 oxgnTokenClaim,
@@ -216,7 +236,7 @@ contract Clans is IClans, ERC1155, EIP712, Ownable {
     address benificiaryOfTax,
     uint256 oxgnTokenTax,
     bytes calldata signature
-  ) external {
+  ) external nonReentrant {
     require(oxgnTokenClaim > 0, "empty claim");
     require(_signerAddress == recoverAddress(_msgSender(), oxgnTokenClaim, oxgnTokenDonate, clanId, clanTokenClaim, benificiaryOfTax, oxgnTokenTax, accountNonce(_msgSender()), signature), "invalid signature");
 
@@ -244,7 +264,7 @@ contract Clans is IClans, ERC1155, EIP712, Ownable {
 
   /** CLAN */
 
-  function createClan(uint256 colonyId) public {
+  function createClan(uint256 colonyId) public nonReentrant {
     require(featureFlagCreateClan, "feature not enabled");
     require(colonyId > 0 && colonyId < 4, "only 3 colonies ever");
     require(!isClanLeader(_msgSender()), "clan leader can't create new clan");
@@ -274,7 +294,7 @@ contract Clans is IClans, ERC1155, EIP712, Ownable {
     _mint(_msgSender(), clanId, creatorInitialClanTokens, "");
   }
 
-  function switchColony(uint256 clanId, uint256 colonyId) external {
+  function switchColony(uint256 clanId, uint256 colonyId) external nonReentrant {
     require(featureFlagSwitchColony, "feature not enabled");
     require(colonyId > 0 && colonyId < 4, "only 3 colonies ever");
     require(clanId > 0 && clanId < clanIdTracker.current(), "invalid clan");
@@ -587,7 +607,7 @@ contract Clans is IClans, ERC1155, EIP712, Ownable {
     address contractAddress,
     uint256[] memory tokenIds,
     uint256 clanId
-  ) external incrementNonce {
+  ) external incrementNonce nonReentrant {
     StakedContract storage _contract = contracts[contractAddress];
     require(_contract.active, "token contract is not active");
     if (isClanLeader(_msgSender())) {
@@ -607,7 +627,7 @@ contract Clans is IClans, ERC1155, EIP712, Ownable {
     }
   }
 
-  function unstake(address contractAddress, uint256[] memory tokenIds) external incrementNonce ifContractExists(contractAddress) {
+  function unstake(address contractAddress, uint256[] memory tokenIds) external incrementNonce ifContractExists(contractAddress) nonReentrant {
     StakedContract storage _contract = contracts[contractAddress];
 
     for (uint256 i = 0; i < tokenIds.length; i++) {
@@ -658,7 +678,7 @@ contract Clans is IClans, ERC1155, EIP712, Ownable {
   mapping(address => uint8) _addressToTankLevel;
   uint256[] public tankPrices = [50 ether, 100 ether, 200 ether, 400 ether, 800 ether, 1600 ether, 3200 ether, 6400 ether, 12800 ether];
 
-  function upgradeTank() external {
+  function upgradeTank() external nonReentrant{
     require(tankLevelOfOwner(_msgSender()) < tankPrices.length + 1, "tank is at max level");
     oxgnToken.burn(_msgSender(), nextLevelTankPrice(_msgSender()));
     _addressToTankLevel[_msgSender()]++;
