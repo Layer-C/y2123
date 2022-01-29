@@ -15,9 +15,10 @@ describe("Clans Contract", function () {
     await oContract.deployed();
 
     contract = await ethers.getContractFactory("Clans");
-    cContract = await contract.deploy("");
+    const clan_uri = "https://api.y2123.io/clan-asset?id=";
+    cContract = await contract.deploy(clan_uri, oContract.address, yContract.address);
     await cContract.deployed();
-    await cContract.setContracts(oContract.address, yContract.address);
+    //await cContract.setTokenContract(oContract.address);
 
     await oContract.addAdmin(cContract.address);
 
