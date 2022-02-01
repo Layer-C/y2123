@@ -7,4 +7,12 @@ interface IClans {
     uint256[] memory tokenIds,
     uint256 clanId
   ) external;
+
+  function mint(
+    address recipient,
+    uint256 id,
+    uint256 amount
+  ) external;
+
+  function burn(uint256 id, uint256 amount) external;
 }
