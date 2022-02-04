@@ -174,7 +174,6 @@ contract Clans is IClans, ERC1155, EIP712, Ownable, ReentrancyGuard {
     address account,
     uint256 oxgnTokenClaim,
     uint256 oxgnTokenDonate,
-    uint256 clanId,
     uint256 clanTokenClaim,
     address benificiaryOfTax,
     uint256 oxgnTokenTax,
@@ -184,11 +183,10 @@ contract Clans is IClans, ERC1155, EIP712, Ownable, ReentrancyGuard {
       _hashTypedDataV4(
         keccak256(
           abi.encode(
-            keccak256("Claim(address account,uint256 oxgnTokenClaim,uint256 oxgnTokenDonate,uint256 clanId,uint256 clanTokenClaim,address benificiaryOfTax,uint256 oxgnTokenTax,uint256 nonce)"),
+            keccak256("Claim(address account,uint256 oxgnTokenClaim,uint256 oxgnTokenDonate,uint256 clanTokenClaim,address benificiaryOfTax,uint256 oxgnTokenTax,uint256 nonce)"),
             account,
             oxgnTokenClaim,
             oxgnTokenDonate,
-            clanId,
             clanTokenClaim,
             benificiaryOfTax,
             oxgnTokenTax,
@@ -202,14 +200,13 @@ contract Clans is IClans, ERC1155, EIP712, Ownable, ReentrancyGuard {
     address account,
     uint256 oxgnTokenClaim,
     uint256 oxgnTokenDonate,
-    uint256 clanId,
     uint256 clanTokenClaim,
     address benificiaryOfTax,
     uint256 oxgnTokenTax,
     uint256 nonce,
     bytes calldata signature
   ) public view returns (address) {
-    return ECDSA.recover(_hash(account, oxgnTokenClaim, oxgnTokenDonate, clanId, clanTokenClaim, benificiaryOfTax, oxgnTokenTax, nonce), signature);
+    return ECDSA.recover(_hash(account, oxgnTokenClaim, oxgnTokenDonate, clanTokenClaim, benificiaryOfTax, oxgnTokenTax, nonce), signature);
   }
 
   /** CLAIM & DONATE */
@@ -236,17 +233,17 @@ contract Clans is IClans, ERC1155, EIP712, Ownable, ReentrancyGuard {
   function claim(
     uint256 oxgnTokenClaim,
     uint256 oxgnTokenDonate,
-    uint256 clanId,
     uint256 clanTokenClaim,
     address benificiaryOfTax,
     uint256 oxgnTokenTax,
     bytes calldata signature
   ) external nonReentrant {
     require(oxgnTokenClaim > 0, "empty claim");
-    require(_signerAddress == recoverAddress(_msgSender(), oxgnTokenClaim, oxgnTokenDonate, clanId, clanTokenClaim, benificiaryOfTax, oxgnTokenTax, accountNonce(_msgSender()), signature), "invalid signature");
+    require(_signerAddress == recoverAddress(_msgSender(), oxgnTokenClaim, oxgnTokenDonate, clanTokenClaim, benificiaryOfTax, oxgnTokenTax, accountNonce(_msgSender()), signature), "invalid signature");
 
     oxgnToken.mint(_msgSender(), oxgnTokenClaim);
     addressToNonce[_msgSender()].increment();
+    uint256 clanId = clanStructs[_msgSender()].clanId;
     accountToLastClaim[_msgSender()] = ClaimInfo(oxgnTokenClaim, oxgnTokenDonate, clanId, clanTokenClaim, benificiaryOfTax, oxgnTokenTax, accountNonce(_msgSender()), block.timestamp);
 
     if (oxgnTokenDonate > 0) {
