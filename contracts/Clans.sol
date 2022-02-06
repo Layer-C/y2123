@@ -70,6 +70,10 @@ contract Clans is IClans, ERC1155, EIP712, Ownable, ReentrancyGuard {
     return bytes(baseURI).length > 0 ? string(abi.encodePacked(baseURI, clanId.toString())) : baseURI;
   }
 
+  function setBaseURI(string memory newBaseURI) external onlyOwner {
+    baseURI = newBaseURI;
+  }
+
   function toggleFeatureFlagCreateClan() external onlyOwner {
     featureFlagCreateClan = !featureFlagCreateClan;
   }
