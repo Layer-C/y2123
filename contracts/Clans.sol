@@ -21,11 +21,11 @@ contract Clans is IClans, ERC1155, EIP712, Ownable, ReentrancyGuard {
   bool public featureFlagSuperDemote = false;
   uint256 public creatorInitialClanTokens = 100;
   uint256 public changeLeaderPercentage = 10;
-  uint256 public createClanCostMultiplier = 100;
-  uint256 public switchColonyCost = 10000;
-  uint256 public switchClanCostBase = 10;
-  uint256 public switchClanCostMultiplier = 100000;
-  uint256 public updateRankCostMultiplierOxgn = 10;
+  uint256 public createClanCostMultiplier = 100 ether;
+  uint256 public switchColonyCost = 10000 ether;
+  uint256 public switchClanCostBase = 10 ether;
+  uint256 public switchClanCostMultiplier = 100000 ether;
+  uint256 public updateRankCostMultiplierOxgn = 10 ether;
   uint256 public updateRankCostMultiplierClanToken = 10;
   uint256 public clanRankCap = 5;
   uint256 public minClanInColony = 3;
@@ -245,16 +245,16 @@ contract Clans is IClans, ERC1155, EIP712, Ownable, ReentrancyGuard {
     require(oxgnTokenClaim > 0, "empty claim");
     require(_signerAddress == recoverAddress(_msgSender(), oxgnTokenClaim, oxgnTokenDonate, clanTokenClaim, benificiaryOfTax, oxgnTokenTax, accountNonce(_msgSender()), signature), "invalid signature");
 
-    oxgnToken.mint(_msgSender(), oxgnTokenClaim);
+    oxgnToken.mint(_msgSender(), oxgnTokenClaim * 1 ether);
     addressToNonce[_msgSender()].increment();
     uint256 clanId = clanStructs[_msgSender()].clanId;
     accountToLastClaim[_msgSender()] = ClaimInfo(oxgnTokenClaim, oxgnTokenDonate, clanId, clanTokenClaim, benificiaryOfTax, oxgnTokenTax, accountNonce(_msgSender()), block.timestamp);
 
     if (oxgnTokenDonate > 0) {
-      oxgnToken.mint(address(this), oxgnTokenDonate);
+      oxgnToken.mint(address(this), oxgnTokenDonate * 1 ether);
     }
     if (benificiaryOfTax != address(0) && oxgnTokenTax > 0) {
-      oxgnToken.mint(benificiaryOfTax, oxgnTokenTax);
+      oxgnToken.mint(benificiaryOfTax, oxgnTokenTax * 1 ether);
     }
     if (clanId > 0 && clanId < clanIdTracker.current() && clanTokenClaim > 0) {
       _mint(_msgSender(), clanId, clanTokenClaim, "");
