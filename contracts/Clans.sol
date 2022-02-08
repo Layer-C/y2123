@@ -38,8 +38,6 @@ contract Clans is IClans, ERC1155, EIP712, Ownable, ReentrancyGuard {
   event ClanCreated(address indexed leader, uint256 indexed clanId, uint256 indexed colonyId);
   event SwitchColony(address indexed leader, uint256 indexed clanId, uint256 indexed colonyId);
   event ChangeLeader(address indexed oldLeader, address indexed newLeader, uint256 indexed clanId, uint256 clanTokens);
-  event PromoteClanRank(address indexed addr, uint256 clanId, address indexed leader, uint256 rank, uint256 oxgnCost, uint256 clanTokenCost);
-  event DemoteClanRank(address indexed addr, uint256 clanId, address indexed leader, uint256 rank, uint256 oxgnCost, uint256 clanTokenCost);
   event SwitchClan(address indexed addr, uint256 indexed oldClanId, uint256 indexed newClanId, uint256 switchClanCost);
   event Stake(uint256 tokenId, address contractAddress, address owner, uint256 indexed clanId);
   event Unstake(uint256 tokenId, address contractAddress, address owner);
@@ -276,9 +274,6 @@ contract Clans is IClans, ERC1155, EIP712, Ownable, ReentrancyGuard {
     // Switch to created clan
     clanStructs[_msgSender()].clanId = clanId;
     clanStructs[_msgSender()].updateClanTimestamp = block.timestamp;
-    // Reset rank
-    clanStructs[_msgSender()].rank = 0; //Start from 0 or max rank?
-    clanStructs[_msgSender()].updateRankTimestamp = block.timestamp;
 
     // Clan leader assigned to _msgSender() thru mint
     _mint(_msgSender(), clanId, creatorInitialClanTokens, "");
@@ -357,9 +352,7 @@ contract Clans is IClans, ERC1155, EIP712, Ownable, ReentrancyGuard {
 
   struct ClanStruct {
     uint256 clanId;
-    uint256 rank;
     uint256 updateClanTimestamp;
-    uint256 updateRankTimestamp;
     bool isEntity;
   }
 
@@ -464,16 +457,11 @@ contract Clans is IClans, ERC1155, EIP712, Ownable, ReentrancyGuard {
 
         clanStructs[entityAddress].clanId = clanId;
         clanStructs[entityAddress].updateClanTimestamp = block.timestamp;
-        //reset rank
-        clanStructs[entityAddress].rank = 0;
-        clanStructs[entityAddress].updateRankTimestamp = block.timestamp;
       }
     } else {
       //create clan record flow
       clanStructs[entityAddress].clanId = clanId;
-      clanStructs[entityAddress].rank = 0;
       clanStructs[entityAddress].updateClanTimestamp = block.timestamp;
-      clanStructs[entityAddress].updateRankTimestamp = block.timestamp;
       clanStructs[entityAddress].isEntity = true;
       entityList.push(entityAddress);
     }
