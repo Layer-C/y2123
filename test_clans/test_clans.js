@@ -98,10 +98,7 @@ describe("Clans Contract", function () {
 
     const claimableOfOwner = await cContract.claimableOfOwner(yContract.address, accounts[0].address);
     console.log(claimableOfOwner);
-    expect(claimableOfOwner.stakedNftIds[0]).to.eql(ethers.BigNumber.from(0));
-    expect(claimableOfOwner.stakedNftTimestamps[0]).to.not.eql(ethers.BigNumber.from(0));
+    expect(claimableOfOwner.stakedTimestamps[0]).to.not.eql(ethers.BigNumber.from(0));
     expect(claimableOfOwner.claimableTimestamps[0]).to.not.eql(ethers.BigNumber.from(0));
-    expect(claimableOfOwner.lastClaimTimestamp).to.eql(ethers.BigNumber.from(0));
-
   });
 });

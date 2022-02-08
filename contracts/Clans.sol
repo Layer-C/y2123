@@ -516,26 +516,14 @@ contract Clans is IClans, ERC1155, EIP712, Ownable, ReentrancyGuard {
     return tokenIds;
   }
 
-  function claimableOfOwner(address contractAddress, address owner)
-    public
-    view
-    ifContractExists(contractAddress)
-    returns (
-      uint256[] memory stakedNftIds,
-      uint256[] memory stakedNftTimestamps,
-      uint256[] memory claimableTimestamps,
-      uint256 lastClaimTimestamp
-    )
-  {
+  function claimableOfOwner(address contractAddress, address owner) public view ifContractExists(contractAddress) returns (uint256[] memory stakedTimestamps, uint256[] memory claimableTimestamps) {
     EnumerableSet.UintSet storage userTokens = addressToStakedTokensSet[contractAddress][owner];
-    uint256[] memory tokenIds = new uint256[](userTokens.length());
     uint256[] memory stakedTs = new uint256[](userTokens.length());
     uint256[] memory claimableTs = new uint256[](userTokens.length());
     uint256 lastClaimTs = accountToLastClaim[owner].blocktime;
 
     for (uint256 i = 0; i < userTokens.length(); i++) {
       uint256 tokenId = userTokens.at(i);
-      tokenIds[i] = tokenId;
       stakedTs[i] = contractTokenIdToStakedTimestamp[contractAddress][tokenId];
       if (lastClaimTs > stakedTs[i]) {
         claimableTs[i] = lastClaimTs;
@@ -544,7 +532,7 @@ contract Clans is IClans, ERC1155, EIP712, Ownable, ReentrancyGuard {
       }
     }
 
-    return (tokenIds, stakedTs, claimableTs, lastClaimTs);
+    return (stakedTs, claimableTs);
   }
 
   function stakedTokenTimestamp(address contractAddress, uint256 tokenId) public view ifContractExists(contractAddress) returns (uint256) {
