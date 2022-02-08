@@ -13,7 +13,7 @@ const { ALCHEMY_API_KEY, TEST1_PK, TEST2_PK, TEST3_PK, ETHERSCAN_API } =
  */
 module.exports = {
   solidity: {
-    version: "0.8.10",
+    version: "0.8.11",
     settings: {
       optimizer: {
         enabled: true,

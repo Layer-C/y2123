@@ -88,6 +88,7 @@ describe("Clans Contract", function () {
     expect(acc[0]).to.eql(accounts[0].address);
     expect(acc[1]).to.eql(accounts[1].address);
 
+    /*
     const clanRecords = await cContract.getClanRecords(1);
     //console.log(clanRecords);
     expect(clanRecords[0].entity).to.eql(accounts[0].address);
@@ -98,5 +99,6 @@ describe("Clans Contract", function () {
     const clanStakedRecords = await cContract.getClanStaking(1, yContract.address);
     console.log(clanStakedRecords);
     expect(clanStakedRecords[0].entity).to.eql(accounts[0].address);
+    */
   });
 });
