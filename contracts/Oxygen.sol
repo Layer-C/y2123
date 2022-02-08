@@ -8,7 +8,7 @@ import "./IOxygen.sol";
 contract Oxygen is IOxygen, ERC20, Ownable {
   mapping(address => uint256) private lastWrite;
   mapping(address => bool) private admins;
-  uint256 public startMaxCap = 8000000000;
+  uint256 public startMaxCap = 8000000000 ether;
   address public donationAccount;
   uint256 public donationCount;
   uint256 public mintedCount;

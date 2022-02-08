@@ -42,7 +42,7 @@ describe("Clans Contract", function () {
     await cContract.toggleFeatureFlagSwitchColony();
 
     expect(await cContract.clanIdTracker()).to.equal(clanId);
-    await oContract.mint(accounts[0].address, 1000);
+    await oContract.mint(accounts[0].address, ethers.utils.parseEther("100.0"));
     await cContract.createClan(colonyId);
     expect(await cContract.clanIdTracker()).to.equal(clanId + 1);
     expect(await cContract.clanToHighestOwnedCount(clanId)).to.equal(100);
@@ -82,7 +82,7 @@ describe("Clans Contract", function () {
     expect(await cContract.shouldChangeLeader(accounts[1].address, clanId, 111)).to.equal(true);
 
     //Change clan by staking
-    await oContract.mint(accounts[1].address, 1000); // oxgn needed to change clan
+    await oContract.mint(accounts[1].address, ethers.utils.parseEther("100.0")); // oxgn needed to change clan
     await cContract.connect(accounts[1]).stake(yContract.address, [5], 1);
     const acc = await cContract.getAccountsInClan(1);
     expect(acc[0]).to.eql(accounts[0].address);
@@ -95,7 +95,7 @@ describe("Clans Contract", function () {
     expect(clanRecords[1].entity).to.eql(accounts[1].address);
     expect(ethers.BigNumber.from(clanRecords[1].clanData.clanId)).to.eql(ethers.BigNumber.from(1));
 
-    const clanStakedRecords = await cContract.getClanAndStakedRecords(1, yContract.address);
+    const clanStakedRecords = await cContract.getClanStaking(1, yContract.address);
     console.log(clanStakedRecords);
     expect(clanStakedRecords[0].entity).to.eql(accounts[0].address);
   });
