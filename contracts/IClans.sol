@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT LICENSE
-pragma solidity ^0.8.0;
+pragma solidity ^0.8.10;
 
 interface IClans {
   function stake(
