@@ -534,8 +534,9 @@ contract Clans is IClans, ERC1155, EIP712, Ownable, ReentrancyGuard {
     uint256 lastClaimTs = accountToLastClaim[owner].blocktime;
 
     for (uint256 i = 0; i < userTokens.length(); i++) {
-      tokenIds[i] = userTokens.at(i);
-      stakedTs[i] = stakedTokenTimestamp(contractAddress, userTokens.at(i));
+      uint256 tokenId = userTokens.at(i);
+      tokenIds[i] = tokenId;
+      stakedTs[i] = contractTokenIdToStakedTimestamp[contractAddress][tokenId];
       if (lastClaimTs > stakedTs[i]) {
         claimableTs[i] = lastClaimTs;
       } else {
