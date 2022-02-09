@@ -224,7 +224,7 @@ contract Clans is IClans, ERC1155, EIP712, Ownable, ReentrancyGuard {
     require(oxgnTokenClaim > 0, "empty claim");
     require(_signerAddress == recoverAddress(_msgSender(), oxgnTokenClaim, oxgnTokenDonate, clanTokenClaim, benificiaryOfTax, oxgnTokenTax, accountNonce(_msgSender()), timestamp, signature), "invalid signature");
     if (serverToBlockTimeDelta > 0) {
-      require(timestamp < block.timestamp + serverToBlockTimeDelta, "session expired");
+      require(timestamp > block.timestamp - serverToBlockTimeDelta, "session expired");
     }
 
     oxgnToken.mint(_msgSender(), oxgnTokenClaim * 1 ether);
