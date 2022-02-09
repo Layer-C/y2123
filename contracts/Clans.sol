@@ -25,6 +25,7 @@ contract Clans is IClans, ERC1155, EIP712, Ownable, ReentrancyGuard {
   uint256 public switchClanCostBase = 10 ether;
   uint256 public switchClanCostMultiplier = 0.01 ether;
   uint256 public minClanInColony = 1;
+  uint256 public serverToBlockTimeDelta = 60;
   address public y2123Nft;
   IOxygen public oxgnToken;
 
@@ -41,7 +42,7 @@ contract Clans is IClans, ERC1155, EIP712, Ownable, ReentrancyGuard {
   event SwitchClan(address indexed addr, uint256 indexed oldClanId, uint256 indexed newClanId, uint256 switchClanCost);
   event Stake(uint256 tokenId, address contractAddress, address owner, uint256 indexed clanId);
   event Unstake(uint256 tokenId, address contractAddress, address owner);
-  event Claim(address indexed addr, uint256 oxgnTokenClaim, uint256 oxgnTokenDonate, uint256 indexed clanId, uint256 clanTokenClaim, address indexed benificiaryOfTax, uint256 oxgnTokenTax);
+  event Claim(address indexed addr, uint256 oxgnTokenClaim, uint256 oxgnTokenDonate, uint256 indexed clanId, uint256 clanTokenClaim, address indexed benificiaryOfTax, uint256 oxgnTokenTax, uint256 servertime);
 
   constructor(
     string memory _baseURI,
@@ -74,6 +75,10 @@ contract Clans is IClans, ERC1155, EIP712, Ownable, ReentrancyGuard {
 
   function toggleFeatureFlagSwitchColony() external onlyOwner {
     featureFlagSwitchColony = !featureFlagSwitchColony;
+  }
+
+  function setServerToBlockTimeDelta(uint256 newVal) public onlyOwner {
+    serverToBlockTimeDelta = newVal;
   }
 
   function setChangeLeaderPercentage(uint256 newVal) public onlyOwner {
@@ -163,11 +168,12 @@ contract Clans is IClans, ERC1155, EIP712, Ownable, ReentrancyGuard {
     uint256 clanTokenClaim,
     address benificiaryOfTax,
     uint256 oxgnTokenTax,
-    uint256 nonce
+    uint256 nonce,
+    uint256 timestamp
   ) internal view returns (bytes32) {
     return
       _hashTypedDataV4(
-        keccak256(abi.encode(keccak256("Claim(address account,uint256 oxgnTokenClaim,uint256 oxgnTokenDonate,uint256 clanTokenClaim,address benificiaryOfTax,uint256 oxgnTokenTax,uint256 nonce)"), account, oxgnTokenClaim, oxgnTokenDonate, clanTokenClaim, benificiaryOfTax, oxgnTokenTax, nonce))
+        keccak256(abi.encode(keccak256("Claim(address account,uint256 oxgnTokenClaim,uint256 oxgnTokenDonate,uint256 clanTokenClaim,address benificiaryOfTax,uint256 oxgnTokenTax,uint256 nonce,uint256 timestamp)"), account, oxgnTokenClaim, oxgnTokenDonate, clanTokenClaim, benificiaryOfTax, oxgnTokenTax, nonce, timestamp))
       );
   }
 
@@ -179,9 +185,10 @@ contract Clans is IClans, ERC1155, EIP712, Ownable, ReentrancyGuard {
     address benificiaryOfTax,
     uint256 oxgnTokenTax,
     uint256 nonce,
+    uint256 timestamp,
     bytes calldata signature
   ) public view returns (address) {
-    return ECDSA.recover(_hash(account, oxgnTokenClaim, oxgnTokenDonate, clanTokenClaim, benificiaryOfTax, oxgnTokenTax, nonce), signature);
+    return ECDSA.recover(_hash(account, oxgnTokenClaim, oxgnTokenDonate, clanTokenClaim, benificiaryOfTax, oxgnTokenTax, nonce, timestamp), signature);
   }
 
   /** CLAIM & DONATE */
@@ -200,26 +207,30 @@ contract Clans is IClans, ERC1155, EIP712, Ownable, ReentrancyGuard {
     address benificiaryOfTax;
     uint256 oxgnTokenTax;
     uint256 nonce;
+    uint256 servertime;
     uint256 blocktime;
   }
   mapping(address => ClaimInfo) public accountToLastClaim;
 
-  // % tax assigned by a queue system
   function claim(
     uint256 oxgnTokenClaim,
     uint256 oxgnTokenDonate,
     uint256 clanTokenClaim,
     address benificiaryOfTax,
     uint256 oxgnTokenTax,
+    uint256 timestamp,
     bytes calldata signature
   ) external nonReentrant {
     require(oxgnTokenClaim > 0, "empty claim");
-    require(_signerAddress == recoverAddress(_msgSender(), oxgnTokenClaim, oxgnTokenDonate, clanTokenClaim, benificiaryOfTax, oxgnTokenTax, accountNonce(_msgSender()), signature), "invalid signature");
+    require(_signerAddress == recoverAddress(_msgSender(), oxgnTokenClaim, oxgnTokenDonate, clanTokenClaim, benificiaryOfTax, oxgnTokenTax, accountNonce(_msgSender()), timestamp, signature), "invalid signature");
+    if (serverToBlockTimeDelta > 0) {
+      require(timestamp < block.timestamp + serverToBlockTimeDelta, "session expired");
+    }
 
     oxgnToken.mint(_msgSender(), oxgnTokenClaim * 1 ether);
     addressToNonce[_msgSender()].increment();
     uint256 clanId = clanStructs[_msgSender()].clanId;
-    accountToLastClaim[_msgSender()] = ClaimInfo(oxgnTokenClaim, oxgnTokenDonate, clanId, clanTokenClaim, benificiaryOfTax, oxgnTokenTax, accountNonce(_msgSender()), block.timestamp);
+    accountToLastClaim[_msgSender()] = ClaimInfo(oxgnTokenClaim, oxgnTokenDonate, clanId, clanTokenClaim, benificiaryOfTax, oxgnTokenTax, accountNonce(_msgSender()), timestamp, block.timestamp);
 
     if (oxgnTokenDonate > 0) {
       oxgnToken.mint(address(this), oxgnTokenDonate * 1 ether);
@@ -231,7 +242,7 @@ contract Clans is IClans, ERC1155, EIP712, Ownable, ReentrancyGuard {
       _mint(_msgSender(), clanId, clanTokenClaim, "");
     }
 
-    emit Claim(_msgSender(), oxgnTokenClaim, oxgnTokenDonate, clanId, clanTokenClaim, benificiaryOfTax, oxgnTokenTax);
+    emit Claim(_msgSender(), oxgnTokenClaim, oxgnTokenDonate, clanId, clanTokenClaim, benificiaryOfTax, oxgnTokenTax, timestamp);
   }
 
   function withdrawForDonation() external onlyOwner {
@@ -520,7 +531,7 @@ contract Clans is IClans, ERC1155, EIP712, Ownable, ReentrancyGuard {
     EnumerableSet.UintSet storage userTokens = addressToStakedTokensSet[contractAddress][owner];
     uint256[] memory stakedTs = new uint256[](userTokens.length());
     uint256[] memory claimableTs = new uint256[](userTokens.length());
-    uint256 lastClaimTs = accountToLastClaim[owner].blocktime;
+    uint256 lastClaimTs = accountToLastClaim[owner].servertime;
 
     for (uint256 i = 0; i < userTokens.length(); i++) {
       uint256 tokenId = userTokens.at(i);
