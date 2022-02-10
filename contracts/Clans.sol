@@ -173,7 +173,19 @@ contract Clans is IClans, ERC1155, EIP712, Ownable, ReentrancyGuard {
   ) internal view returns (bytes32) {
     return
       _hashTypedDataV4(
-        keccak256(abi.encode(keccak256("Claim(address account,uint256 oxgnTokenClaim,uint256 oxgnTokenDonate,uint256 clanTokenClaim,address benificiaryOfTax,uint256 oxgnTokenTax,uint256 nonce,uint256 timestamp)"), account, oxgnTokenClaim, oxgnTokenDonate, clanTokenClaim, benificiaryOfTax, oxgnTokenTax, nonce, timestamp))
+        keccak256(
+          abi.encode(
+            keccak256("Claim(address account,uint256 oxgnTokenClaim,uint256 oxgnTokenDonate,uint256 clanTokenClaim,address benificiaryOfTax,uint256 oxgnTokenTax,uint256 nonce,uint256 timestamp)"),
+            account,
+            oxgnTokenClaim,
+            oxgnTokenDonate,
+            clanTokenClaim,
+            benificiaryOfTax,
+            oxgnTokenTax,
+            nonce,
+            timestamp
+          )
+        )
       );
   }
 
@@ -211,6 +223,9 @@ contract Clans is IClans, ERC1155, EIP712, Ownable, ReentrancyGuard {
     uint256 blocktime;
   }
   mapping(address => ClaimInfo) public accountToLastClaim;
+  mapping(address => uint256) public accountTotalClaim;
+  mapping(address => uint256) public accountTotalDonate;
+  mapping(address => uint256) public accountTotalClanClaim;
 
   function claim(
     uint256 oxgnTokenClaim,
@@ -231,15 +246,18 @@ contract Clans is IClans, ERC1155, EIP712, Ownable, ReentrancyGuard {
     addressToNonce[_msgSender()].increment();
     uint256 clanId = clanStructs[_msgSender()].clanId;
     accountToLastClaim[_msgSender()] = ClaimInfo(oxgnTokenClaim, oxgnTokenDonate, clanId, clanTokenClaim, benificiaryOfTax, oxgnTokenTax, accountNonce(_msgSender()), timestamp, block.timestamp);
+    accountTotalClaim[_msgSender()] = accountTotalClaim[_msgSender()] + oxgnTokenClaim;
 
     if (oxgnTokenDonate > 0) {
       oxgnToken.mint(address(this), oxgnTokenDonate * 1 ether);
+      accountTotalDonate[_msgSender()] = accountTotalDonate[_msgSender()] + oxgnTokenDonate;
     }
     if (benificiaryOfTax != address(0) && oxgnTokenTax > 0) {
       oxgnToken.mint(benificiaryOfTax, oxgnTokenTax * 1 ether);
     }
     if (clanId > 0 && clanId < clanIdTracker.current() && clanTokenClaim > 0) {
       _mint(_msgSender(), clanId, clanTokenClaim, "");
+      accountTotalClanClaim[_msgSender()] = accountTotalClanClaim[_msgSender()] + clanTokenClaim;
     }
 
     emit Claim(_msgSender(), oxgnTokenClaim, oxgnTokenDonate, clanId, clanTokenClaim, benificiaryOfTax, oxgnTokenTax, timestamp);
