@@ -5,7 +5,7 @@ const keccak256 = require('keccak256');
 describe("Y2123 Contract", function () {
   let yContract, oContract, cContract, accounts, merkleTree, root;
   let list = [];
-  const uri = "https://gateway.pinata.cloud/ipfs/QmWoaUxvJLvynACkE9KKj3GkgbWQDToqdSmEL97cRynGrf/";
+  const uri = "https://api.y2123.io/asset?id=";
   //const root1 = '0x4450f575d669ae24697c974018bbbb3db32139532f7d25b71e443d06c2637f01';
   //const root2 = '0xebecb36a6776ac70a2a6af26f91099730e830d664a0b416ae261fb2732aee002';
 
@@ -19,9 +19,9 @@ describe("Y2123 Contract", function () {
     await oContract.deployed();
 
     contract = await ethers.getContractFactory("Clans");
-    cContract = await contract.deploy(uri);
+    const clan_uri = "https://api.y2123.io/clan-asset?id=";
+    cContract = await contract.deploy(clan_uri, oContract.address, yContract.address);
     await cContract.deployed();
-    await cContract.setContracts(oContract.address, yContract.address)
 
     accounts = await ethers.getSigners();
 

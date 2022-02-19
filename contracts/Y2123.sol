@@ -17,23 +17,15 @@ import "@openzeppelin/contracts/security/Pausable.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/token/ERC721/extensions/ERC721Enumerable.sol";
 import {MerkleProof} from "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
-import "./IY2123.sol";
+import "./ERC721A.sol";
 
-contract Y2123 is IY2123, ERC721Enumerable, Ownable, Pausable, ReentrancyGuard {
-  struct LastWrite {
-    uint64 timestamp;
-    uint64 blockNumber;
-  }
-
-  mapping(address => LastWrite) private lastWriteAddress;
-  mapping(uint256 => LastWrite) private lastWriteToken;
+contract Y2123 is ERC721A, Ownable, Pausable, ReentrancyGuard {
   mapping(address => bool) private admins;
 
   using MerkleProof for bytes32[];
   bytes32 merkleRoot;
   bytes32 freeRoot;
 
-  uint256 public constant MAX_SUPPLY_GENESIS = 500;
   uint256 public MAX_SUPPLY = 500;
   uint256 public MAX_RESERVE_MINT = 35;
   uint256 public MAX_FREE_MINT = 15;
@@ -52,23 +44,12 @@ contract Y2123 is IY2123, ERC721Enumerable, Ownable, Pausable, ReentrancyGuard {
   mapping(address => uint256) public whitelistMinted;
   mapping(address => uint256) public addressMinted;
 
-  event Minted(uint256 indexed id);
-  event MintedNonTxOrigin(address indexed addr, uint256 indexed id);
+  event Minted(address indexed addr, uint256 indexed id, bool recipientOrigin);
   event Burned(uint256 indexed id);
   event PresaleActive(bool active);
   event SaleActive(bool active);
 
-  modifier blockIfChangingAddress() {
-    require(admins[_msgSender()] || lastWriteAddress[tx.origin].blockNumber < block.number, "last write same block number");
-    _;
-  }
-
-  modifier blockIfChangingToken(uint256 tokenId) {
-    require(admins[_msgSender()] || lastWriteToken[tokenId].blockNumber < block.number, "last write same block number");
-    _;
-  }
-
-  constructor(string memory uri) ERC721("Y2123", "Y2123") {
+  constructor(string memory uri) ERC721A("Y2123", "Y2123") {
     _pause();
     baseURI = uri;
   }
@@ -142,7 +123,7 @@ contract Y2123 is IY2123, ERC721Enumerable, Ownable, Pausable, ReentrancyGuard {
   function availableSupplyIndex() public view returns (uint256) {
     return (MAX_SUPPLY - MAX_RESERVE_MINT - MAX_FREE_MINT + reserveMintCount + freeMintCount);
   }
-
+/*
   function getTokenIDs(address addr) external view returns (uint256[] memory) {
     uint256 count = balanceOf(addr);
 
@@ -153,7 +134,7 @@ contract Y2123 is IY2123, ERC721Enumerable, Ownable, Pausable, ReentrancyGuard {
 
     return tokens;
   }
-
+*/
   // reserve NFT's for core team
   function reserve(uint256 amount) public onlyOwner {
     uint256 totalMinted = totalSupply();
@@ -231,58 +212,18 @@ contract Y2123 is IY2123, ERC721Enumerable, Ownable, Pausable, ReentrancyGuard {
     require(payable(msg.sender).send(address(this).balance));
   }
 
-  function getTokenWriteBlock(uint256 tokenId) external view override returns (uint64) {
-    require(admins[_msgSender()], "Admins only!");
-    return lastWriteToken[tokenId].blockNumber;
-  }
-
-  function getAddressWriteBlock(address addr) external view override returns (uint64) {
-    require(admins[_msgSender()], "Admins only!");
-    return lastWriteAddress[addr].blockNumber;
-  }
-
-  function mint(address recipient) external override whenNotPaused {
-    uint256 minted = totalSupply();
-
-    require(admins[_msgSender()], "Admins only!");
-    require(minted + 1 <= availableSupplyIndex(), "All tokens minted");
-
-    emit Minted(minted);
-    if (tx.origin != recipient) {
-      emit MintedNonTxOrigin(recipient, minted);
-    }
-    _safeMint(recipient, minted);
-    addressMinted[msg.sender]++;
-  }
-
-  function burn(uint256 tokenId) external override whenNotPaused {
-    require(admins[_msgSender()], "Admins only!");
-    require(ownerOf(tokenId) == tx.origin, "Oops you don't own that");
-    emit Burned(tokenId);
-    _burn(tokenId);
-  }
-
-  function updateOriginAccess(uint256[] memory tokenIds) external override {
-    require(admins[_msgSender()], "Admins only!");
-    uint64 timestamp = uint64(block.timestamp);
-    uint64 blockNumber = uint64(block.number);
-    lastWriteAddress[tx.origin] = LastWrite(timestamp, blockNumber);
-    for (uint256 i = 0; i < tokenIds.length; i++) {
-      lastWriteToken[tokenIds[i]] = LastWrite(timestamp, blockNumber);
-    }
-  }
-
+/*
   function transferFrom(
     address from,
     address to,
     uint256 tokenId
-  ) public virtual override(ERC721, IERC721) blockIfChangingToken(tokenId) {
+  ) public virtual override(ERC721A, IERC721) {
     if (!admins[_msgSender()]) {
       require(_isApprovedOrOwner(_msgSender(), tokenId), "ERC721: transfer caller is not owner nor approved");
     }
     _transfer(from, to, tokenId);
   }
-
+*/
   /** ADMIN */
 
   function setPaused(bool _paused) external onlyOwner {
@@ -298,64 +239,5 @@ contract Y2123 is IY2123, ERC721Enumerable, Ownable, Pausable, ReentrancyGuard {
   function removeAdmin(address addr) external onlyOwner {
     require(addr != address(0), "empty address");
     admins[addr] = false;
-  }
-
-  /** OVERRIDES FOR SAFETY */
-
-  function tokenOfOwnerByIndex(address owner, uint256 index) public view virtual override(ERC721Enumerable, IERC721Enumerable) blockIfChangingAddress returns (uint256) {
-    require(admins[_msgSender()] || lastWriteAddress[owner].blockNumber < block.number, "last write same block number");
-    uint256 tokenId = super.tokenOfOwnerByIndex(owner, index);
-    require(admins[_msgSender()] || lastWriteToken[tokenId].blockNumber < block.number, "last write same block number");
-    return tokenId;
-  }
-
-  function balanceOf(address owner) public view virtual override(ERC721, IERC721) blockIfChangingAddress returns (uint256) {
-    require(admins[_msgSender()] || lastWriteAddress[owner].blockNumber < block.number, "last write same block number");
-    return super.balanceOf(owner);
-  }
-
-  function ownerOf(uint256 tokenId) public view virtual override(ERC721, IERC721) blockIfChangingAddress blockIfChangingToken(tokenId) returns (address) {
-    address addr = super.ownerOf(tokenId);
-    require(admins[_msgSender()] || lastWriteAddress[addr].blockNumber < block.number, "last write same block number");
-    return addr;
-  }
-
-  function tokenByIndex(uint256 index) public view virtual override(ERC721Enumerable, IERC721Enumerable) returns (uint256) {
-    uint256 tokenId = super.tokenByIndex(index);
-    require(admins[_msgSender()] || lastWriteToken[tokenId].blockNumber < block.number, "last write same block number");
-    return tokenId;
-  }
-
-  function approve(address to, uint256 tokenId) public virtual override(ERC721, IERC721) blockIfChangingToken(tokenId) {
-    super.approve(to, tokenId);
-  }
-
-  function getApproved(uint256 tokenId) public view virtual override(ERC721, IERC721) blockIfChangingToken(tokenId) returns (address) {
-    return super.getApproved(tokenId);
-  }
-
-  function setApprovalForAll(address operator, bool approved) public virtual override(ERC721, IERC721) blockIfChangingAddress {
-    super.setApprovalForAll(operator, approved);
-  }
-
-  function isApprovedForAll(address owner, address operator) public view virtual override(ERC721, IERC721) blockIfChangingAddress returns (bool) {
-    return super.isApprovedForAll(owner, operator);
-  }
-
-  function safeTransferFrom(
-    address from,
-    address to,
-    uint256 tokenId
-  ) public virtual override(ERC721, IERC721) blockIfChangingToken(tokenId) {
-    super.safeTransferFrom(from, to, tokenId);
-  }
-
-  function safeTransferFrom(
-    address from,
-    address to,
-    uint256 tokenId,
-    bytes memory _data
-  ) public virtual override(ERC721, IERC721) blockIfChangingToken(tokenId) {
-    super.safeTransferFrom(from, to, tokenId, _data);
   }
 }

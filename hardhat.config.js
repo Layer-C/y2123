@@ -45,7 +45,7 @@ module.exports = {
     },
   },
   paths: {
-    tests: "./test_clans",
+    tests: "./test",
   },
   etherscan: {
     apiKey: ETHERSCAN_API,
