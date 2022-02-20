@@ -15,7 +15,6 @@ y2123.com
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/security/Pausable.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
-import "@openzeppelin/contracts/token/ERC721/extensions/ERC721Enumerable.sol";
 import {MerkleProof} from "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
 import "./ERC721A.sol";
 
@@ -123,18 +122,19 @@ contract Y2123 is ERC721A, Ownable, Pausable, ReentrancyGuard {
   function availableSupplyIndex() public view returns (uint256) {
     return (MAX_SUPPLY - MAX_RESERVE_MINT - MAX_FREE_MINT + reserveMintCount + freeMintCount);
   }
-/*
+
   function getTokenIDs(address addr) external view returns (uint256[] memory) {
+    uint256 total = totalSupply();
     uint256 count = balanceOf(addr);
-
     uint256[] memory tokens = new uint256[](count);
-    for (uint256 i; i < count; i++) {
-      tokens[i] = tokenOfOwnerByIndex(addr, i);
+    for (uint256 i; i < total; i++) {
+      if (addr == ownerOf(i)) {
+        tokens[i] = i;
+      }
     }
-
     return tokens;
   }
-*/
+
   // reserve NFT's for core team
   function reserve(uint256 amount) public onlyOwner {
     uint256 totalMinted = totalSupply();
@@ -212,18 +212,6 @@ contract Y2123 is ERC721A, Ownable, Pausable, ReentrancyGuard {
     require(payable(msg.sender).send(address(this).balance));
   }
 
-/*
-  function transferFrom(
-    address from,
-    address to,
-    uint256 tokenId
-  ) public virtual override(ERC721A, IERC721) {
-    if (!admins[_msgSender()]) {
-      require(_isApprovedOrOwner(_msgSender(), tokenId), "ERC721: transfer caller is not owner nor approved");
-    }
-    _transfer(from, to, tokenId);
-  }
-*/
   /** ADMIN */
 
   function setPaused(bool _paused) external onlyOwner {
