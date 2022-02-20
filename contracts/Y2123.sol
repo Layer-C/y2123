@@ -199,13 +199,7 @@ contract Y2123 is ERC721A, Ownable, Pausable, ReentrancyGuard {
       require(amount <= maxMintPerTx, "Exceeded max mint per transaction");
     }
 
-    for (uint256 i = 0; i < amount; i++) {
-      _safeMint(msg.sender, totalMinted + i);
-      addressMinted[msg.sender]++;
-      if (presaleEnabled == true) {
-        whitelistMinted[msg.sender]++;
-      }
-    }
+    _safeMint(msg.sender, amount);
   }
 
   function withdrawAll() external onlyOwner {
