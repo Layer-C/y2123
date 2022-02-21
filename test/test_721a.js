@@ -145,7 +145,6 @@ describe("Y2123 Contract", function () {
     expect(await yContract.tokenURI(1)).to.equal("ipfs://Test123/1");
   });
 
-  /*
   it("Presale minting", async () => {
     await yContract.toggleSale();
     const nftPrice = await yContract.mintPrice();
@@ -169,18 +168,18 @@ describe("Y2123 Contract", function () {
     let proof = merkleTree.getHexProof(keccak256(accounts[0].address));
     //console.log("owner proof is %s", proof);
 
-    await expect(yContract.paidMint(2, proof, { value: BigInt(nftPrice * 2), }))
+    await expect(yContract.paidMint(2, proof, { value: ethers.BigNumber.from(nftPrice).mul(2), }))
       .to.emit(yContract, "Transfer")
       .withArgs(ethers.constants.AddressZero, accounts[0].address, tokenId);
 
-    await expect(yContract.paidMint(1, proof, { value: nftPrice, }))
+    await expect(yContract.paidMint(1, proof, { value: ethers.BigNumber.from(nftPrice), }))
       .to.be.revertedWith('Exceeded max mint per address for whitelist, try minting with less');
 
     proof = merkleTree.getHexProof(keccak256(accounts[1].address));
     //console.log("addr1 proof is %s", proof);
     tokenId = await yContract.totalSupply();
 
-    await expect(yContract.connect(accounts[1]).paidMint(1, proof, { value: nftPrice, }))
+    await expect(yContract.connect(accounts[1]).paidMint(1, proof, { value: ethers.BigNumber.from(nftPrice), }))
       .to.emit(yContract, "Transfer")
       .withArgs(ethers.constants.AddressZero, accounts[1].address, tokenId);
 
@@ -199,13 +198,13 @@ describe("Y2123 Contract", function () {
     proof = merkleTree.getHexProof(keccak256(accounts[0].address));
     //console.log("owner proof is %s", proof);
 
-    await expect(yContract.paidMint(1, proof, { value: nftPrice, }))
+    await expect(yContract.paidMint(1, proof, { value: ethers.BigNumber.from(nftPrice), }))
       .to.be.revertedWith('You are not on the whitelist');
 
     proof = merkleTree.getHexProof(keccak256(accounts[1].address));
     //console.log("addr1 proof is %s", proof);
 
-    await expect(yContract.connect(accounts[1]).paidMint(1, proof, { value: nftPrice, }))
+    await expect(yContract.connect(accounts[1]).paidMint(1, proof, { value: ethers.BigNumber.from(nftPrice), }))
       .to.be.revertedWith('You are not on the whitelist');
 
     proof = merkleTree.getHexProof(keccak256("0x043f292c37e1De0B53951d1e478b59BC5358F359"));
@@ -219,23 +218,7 @@ describe("Y2123 Contract", function () {
     await yContract.toggleFreeMint();
     let tokenId = await yContract.totalSupply();
 
-    list = [
-      '0x75FAaE431707AAb7A3c59083f339d0b727BA77F2',
-      '0xa5809BC8BF14B4b20A0d45B56843E9B2c1Ca6166',
-      '0x7Cd868D186b4bde70AE2694238fB4217b3077e5A',
-      '0xCe4ffe9b46326b559E6452116d983BC7b6441A8f',
-      '0x0a3Fab9E12e2D80273cCc9fFabe4D72068b18dDD',
-      '0x653bD7241De1CCAC9C95fed2bd84ba9c2C82320F',
-      '0x36d7ace36704b3EbAa537839aA9db350DE4051Fb',
-      '0xeA98c541CB125E42bFB23d35331A49dF59f22b05',
-      '0x0B8571caA92fF219dbD60480d5a736dE3280e034',
-      '0xcAF896b3E2e3e835aba5E05c66720EfEb019AFeE',
-      '0x1aAA801Ce12e021e84b3a703AB392188Ea9a5b71',
-      '0x87C2508A75995eFB156C35673F33A8FCc1975fa5',
-      '0x32bAD1fB90f2193854E3AC8EfCc39fc87d8A4Ce4',
-      '0x050144aC034e76FafB6BAf81CB40Aff5991a01Fb',
-      '0x8360d6D8A7B00C0564130B0f1FB6e82789415deE'
-    ];
+    list = [];
     for (const account of accounts) {
       list.push(account.address);
     }
@@ -286,7 +269,7 @@ describe("Y2123 Contract", function () {
     expect(await yContract.freeMintMinted(accounts[2].address)).to.equal(1);
     expect(await yContract.freeMintCount()).to.equal(2);
   });
-
+  
   it("Reserve minting", async () => {
     let tokenId = await yContract.totalSupply();
     await expect(yContract.reserve(2))
@@ -321,8 +304,8 @@ describe("Y2123 Contract", function () {
       .to.emit(yContract, "Transfer")
       .withArgs(ethers.constants.AddressZero, accounts[0].address, tokenId);
 
-    expect(await yContract.addressMinted(accounts[0].address)).to.equal(10);
-    expect(await yContract.addressMinted(accounts[1].address)).to.equal(9);
+    expect(await yContract.balanceOf(accounts[0].address)).to.equal(10);
+    expect(await yContract.balanceOf(accounts[1].address)).to.equal(9);
 
     expect(await yContract.availableSupplyIndex()).to.equal(450);
 
@@ -343,7 +326,7 @@ describe("Y2123 Contract", function () {
     const initialBalance = ethers.utils.formatEther(await accounts[0].getBalance());
     //console.log("initialBalance is %s", initialBalance);
 
-    await expect(yContract.connect(accounts[1]).paidMint(2, [], { value: BigInt(nftPrice * 2), }))
+    await expect(yContract.connect(accounts[1]).paidMint(2, [], { value: ethers.BigNumber.from(nftPrice).mul(2), }))
       .to.emit(yContract, "Transfer")
       .withArgs(ethers.constants.AddressZero, accounts[1].address, tokenId);
 
@@ -356,63 +339,7 @@ describe("Y2123 Contract", function () {
 
     expect(parseFloat(currentBalance)).to.greaterThan(parseFloat(initialBalance));
   });
-
-  it("Contract minting", async () => {
-    await expect(yContract.mint(accounts[0].address))
-      .to.be.revertedWith('Pausable: paused');
-
-    await yContract.setPaused(false);
-
-    await expect(yContract.mint(accounts[0].address))
-      .to.be.revertedWith('Admins only!');
-
-    await yContract.addAdmin(accounts[0].address);
-
-    let tokenId = await yContract.totalSupply();
-    await expect(yContract.mint(accounts[0].address))
-      .to.emit(yContract, "Transfer")
-      .withArgs(ethers.constants.AddressZero, accounts[0].address, tokenId);
-
-    tokenId = await yContract.totalSupply();
-    await expect(yContract.mint(accounts[0].address))
-      .to.emit(yContract, "Transfer")
-      .withArgs(ethers.constants.AddressZero, accounts[0].address, tokenId);
-
-    expect(await yContract.addressMinted(accounts[0].address)).to.equal(2);
-
-    expect(await yContract.availableSupplyIndex()).to.equal(450);
-
-    await yContract.removeAdmin(accounts[0].address);
-
-    await expect(yContract.mint(accounts[0].address))
-      .to.be.revertedWith('Admins only!');
-  });
-
-  it("Contract burning", async () => {
-    await expect(yContract.burn(0))
-      .to.be.revertedWith('Pausable: paused');
-
-    await yContract.setPaused(false);
-
-    await expect(yContract.burn(0))
-      .to.be.revertedWith('Admins only!');
-
-    await yContract.addAdmin(accounts[0].address);
-
-    await expect(yContract.burn(0))
-      .to.be.revertedWith('ERC721: owner query for nonexistent token');
-
-    let tokenId = await yContract.totalSupply();
-    await expect(yContract.mint(accounts[0].address))
-      .to.emit(yContract, "Transfer")
-      .withArgs(ethers.constants.AddressZero, accounts[0].address, tokenId);
-
-    await expect(yContract.burn(0))
-      .to.emit(yContract, "Transfer")
-      .withArgs(accounts[0].address, ethers.constants.AddressZero, 0);
-
-    expect(await yContract.availableSupplyIndex()).to.equal(450);
-  });
+  /*
 
   it("Update origin", async () => {
     await expect(yContract.updateOriginAccess([0]))

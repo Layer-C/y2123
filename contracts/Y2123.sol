@@ -139,15 +139,10 @@ contract Y2123 is ERC721A, Ownable, Pausable, ReentrancyGuard {
 
   // reserve NFT's for core team
   function reserve(uint256 amount) public onlyOwner {
-    uint256 totalMinted = totalSupply();
-
     require(reserveMintCount + amount <= MAX_RESERVE_MINT, "Reserved more then available");
 
-    for (uint256 i = 0; i < amount; i++) {
-      _safeMint(msg.sender, totalMinted + i);
-      addressMinted[msg.sender]++;
-      reserveMintCount += 1;
-    }
+    _safeMint(msg.sender, amount);
+    reserveMintCount += amount;
   }
 
   function airDrop(address[] calldata recipient, uint256[] calldata quantity) external onlyOwner {
@@ -162,25 +157,19 @@ contract Y2123 is ERC721A, Ownable, Pausable, ReentrancyGuard {
     delete totalQuantity;
 
     for (uint256 i = 0; i < recipient.length; ++i) {
-      for (uint256 j = 0; j < quantity[i]; ++j) {
-        _safeMint(recipient[i], supply++);
-        addressMinted[recipient[i]]++;
-      }
+      _safeMint(recipient[i], quantity[i]);
     }
   }
 
   // ONLY 1 free mint per address throughout all collections
   function freeMint(bytes32[] memory proof) public nonReentrant {
-    uint256 totalMinted = totalSupply();
-
     require(msg.sender == tx.origin);
     require(freeMintEnabled, "Free mint not enabled");
     require(proof.verify(freeRoot, keccak256(abi.encodePacked(msg.sender))), "You are not on the free list");
     require(freeMintCount + 1 <= MAX_FREE_MINT, "No more supply");
     require(freeMintMinted[msg.sender] < 1, "You already minted your free nft");
 
-    _safeMint(msg.sender, totalMinted);
-    addressMinted[msg.sender]++;
+    _safeMint(msg.sender, 1);
 
     freeMintMinted[msg.sender] = 1;
     freeMintCount += 1;
@@ -202,6 +191,9 @@ contract Y2123 is ERC721A, Ownable, Pausable, ReentrancyGuard {
     }
 
     _safeMint(msg.sender, amount);
+    if (presaleEnabled == true) {
+      whitelistMinted[msg.sender] += amount;
+    }
   }
 
   function withdrawAll() external onlyOwner {

@@ -205,23 +205,7 @@ describe("Y2123 Contract", function () {
     await yContract.toggleFreeMint();
     let tokenId = await yContract.totalSupply();
 
-    list = [
-      '0x75FAaE431707AAb7A3c59083f339d0b727BA77F2',
-      '0xa5809BC8BF14B4b20A0d45B56843E9B2c1Ca6166',
-      '0x7Cd868D186b4bde70AE2694238fB4217b3077e5A',
-      '0xCe4ffe9b46326b559E6452116d983BC7b6441A8f',
-      '0x0a3Fab9E12e2D80273cCc9fFabe4D72068b18dDD',
-      '0x653bD7241De1CCAC9C95fed2bd84ba9c2C82320F',
-      '0x36d7ace36704b3EbAa537839aA9db350DE4051Fb',
-      '0xeA98c541CB125E42bFB23d35331A49dF59f22b05',
-      '0x0B8571caA92fF219dbD60480d5a736dE3280e034',
-      '0xcAF896b3E2e3e835aba5E05c66720EfEb019AFeE',
-      '0x1aAA801Ce12e021e84b3a703AB392188Ea9a5b71',
-      '0x87C2508A75995eFB156C35673F33A8FCc1975fa5',
-      '0x32bAD1fB90f2193854E3AC8EfCc39fc87d8A4Ce4',
-      '0x050144aC034e76FafB6BAf81CB40Aff5991a01Fb',
-      '0x8360d6D8A7B00C0564130B0f1FB6e82789415deE'
-    ];
+    list = [];
     for (const account of accounts) {
       list.push(account.address);
     }
