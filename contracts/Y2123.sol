@@ -13,12 +13,11 @@ y2123.com
 */
 
 import "@openzeppelin/contracts/access/Ownable.sol";
-import "@openzeppelin/contracts/security/Pausable.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import {MerkleProof} from "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
 import "./ERC721A.sol";
 
-contract Y2123 is ERC721A, Ownable, Pausable, ReentrancyGuard {
+contract Y2123 is ERC721A, Ownable, ReentrancyGuard {
   mapping(address => bool) private admins;
 
   using MerkleProof for bytes32[];
@@ -49,7 +48,6 @@ contract Y2123 is ERC721A, Ownable, Pausable, ReentrancyGuard {
   event SaleActive(bool active);
 
   constructor(string memory uri) ERC721A("Y2123", "Y2123") {
-    _pause();
     baseURI = uri;
   }
 
@@ -201,11 +199,6 @@ contract Y2123 is ERC721A, Ownable, Pausable, ReentrancyGuard {
   }
 
   /** ADMIN */
-
-  function setPaused(bool _paused) external onlyOwner {
-    if (_paused) _pause();
-    else _unpause();
-  }
 
   function addAdmin(address addr) external onlyOwner {
     require(addr != address(0), "empty address");

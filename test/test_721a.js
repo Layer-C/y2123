@@ -97,6 +97,9 @@ describe("Y2123 Contract", function () {
     let balance = await yContract.balanceOf(accounts[0].address);
     expect(balance).to.equal(3);
 
+    const address = await yContract.ownerOf(0);
+    expect(address).to.equal(accounts[0].address);
+
     expect(await yContract.getTokenIDs(accounts[0].address)).to.eql([ethers.BigNumber.from(0), ethers.BigNumber.from(1), ethers.BigNumber.from(2)]);
 
     tokenId = await yContract.totalSupply();
@@ -339,36 +342,19 @@ describe("Y2123 Contract", function () {
 
     expect(parseFloat(currentBalance)).to.greaterThan(parseFloat(initialBalance));
   });
-  /*
 
-  it("Update origin", async () => {
-    await expect(yContract.updateOriginAccess([0]))
-      .to.be.revertedWith('Admins only!');
-
+  it("Approval", async () => {
     await yContract.addAdmin(accounts[0].address);
-
-    await yContract.updateOriginAccess([0]);
-
-    await yContract.setPaused(false);
-
-    let tokenId = await yContract.totalSupply();
-    await expect(yContract.mint(accounts[0].address))
-      .to.emit(yContract, "Transfer")
-      .withArgs(ethers.constants.AddressZero, accounts[0].address, tokenId);
 
     await yContract.removeAdmin(accounts[0].address);
 
-    const tokenid1 = await yContract.tokenOfOwnerByIndex(accounts[0].address, 0);
-    expect(tokenid1).to.equal(0);
-
-    const balance = await yContract.balanceOf(accounts[0].address);
-    expect(balance).to.equal(1);
-
-    const address = await yContract.ownerOf(0);
-    expect(address).to.equal(accounts[0].address);
-
-    const tokenid2 = await yContract.tokenByIndex(0);
-    expect(tokenid2).to.equal(0);
+    const nftPrice = await yContract.mintPrice();
+    let tokenId = await yContract.totalSupply();
+    await yContract.toggleSale();
+    await yContract.togglePresale();
+    await expect(yContract.paidMint(3, [], { value: ethers.BigNumber.from(nftPrice).mul(3) }))
+      .to.emit(yContract, "Transfer")
+      .withArgs(ethers.constants.AddressZero, accounts[0].address, tokenId);
 
     await yContract.approve(accounts[1].address, 0);
 
@@ -517,5 +503,4 @@ describe("Y2123 Contract", function () {
       console.log("Total NFT for acc %s is %s", account.address, balance);
     }
   });
-  */
 });
