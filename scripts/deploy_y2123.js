@@ -7,7 +7,7 @@ async function main() {
     // Get contract that we want to deploy
     const contractFactory = await hre.ethers.getContractFactory("Y2123");
 
-    const uri = "https://gateway.pinata.cloud/ipfs/QmWoaUxvJLvynACkE9KKj3GkgbWQDToqdSmEL97cRynGrf/";
+    const uri = "https://api.y2123.io/asset?id=";
 
     // Deploy contract with the correct constructor arguments
     const contract = await contractFactory.deploy(uri);

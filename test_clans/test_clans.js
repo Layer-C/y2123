@@ -1,7 +1,7 @@
 const { expect } = require("chai");
 
 describe("Clans Contract", function () {
-  let oContract, cContract, accounts;
+  let oContract, cContract, yContract, y2Contract, accounts;
 
   beforeEach(async () => {
     contract = await ethers.getContractFactory("Y2123");
@@ -9,8 +9,10 @@ describe("Clans Contract", function () {
     yContract = await contract.deploy(uri);
     await yContract.deployed();
 
-    contract = await ethers.getContractFactory("Oxygen");
+    y2Contract = await contract.deploy(uri);
+    await y2Contract.deployed();
 
+    contract = await ethers.getContractFactory("Oxygen");
     oContract = await contract.deploy();
     await oContract.deployed();
 
@@ -18,6 +20,7 @@ describe("Clans Contract", function () {
     const clan_uri = "https://api.y2123.io/clan-asset?id=";
     cContract = await contract.deploy(clan_uri, oContract.address, yContract.address);
     await cContract.deployed();
+    cContract.addContract(y2Contract.address);
 
     await oContract.addAdmin(cContract.address);
 
@@ -64,7 +67,7 @@ describe("Clans Contract", function () {
     expect(ethers.BigNumber.from(clans[0])).to.eql(ethers.BigNumber.from(1));
     expect(ethers.BigNumber.from(clans[1])).to.eql(ethers.BigNumber.from(4));
 
-    const nftPrice = await yContract.mintPrice();
+    let nftPrice = await yContract.mintPrice();
     let tokenId = await yContract.totalSupply();
     await expect(yContract.paidMint(3, [], { value: ethers.BigNumber.from(nftPrice).mul(3) }))
       .to.emit(yContract, "Transfer")
@@ -102,5 +105,20 @@ describe("Clans Contract", function () {
     console.log(claimableOfOwner);
     expect(claimableOfOwner.stakedTimestamps[0]).to.not.eql(ethers.BigNumber.from(0));
     expect(claimableOfOwner.claimableTimestamps[0]).to.not.eql(ethers.BigNumber.from(0));
+
+    //Staking another contract NFTs
+    nftPrice = await y2Contract.mintPrice();
+    tokenId = await y2Contract.totalSupply();
+    await expect(y2Contract.paidMint(3, [], { value: ethers.BigNumber.from(nftPrice).mul(3) }))
+      .to.emit(y2Contract, "Transfer")
+      .withArgs(ethers.constants.AddressZero, accounts[0].address, tokenId);
+
+    await y2Contract.connect(accounts[1]).paidMint(3, [], { value: ethers.BigNumber.from(nftPrice).mul(3) });
+
+    await y2Contract.setApprovalForAll(cContract.address, true);
+    await cContract.stake(y2Contract.address, [0, 1, 2], 1);
+
+    await y2Contract.connect(accounts[1]).setApprovalForAll(cContract.address, true);
+    await cContract.connect(accounts[1]).stake(y2Contract.address, [3, 4], 4);
   });
 });
