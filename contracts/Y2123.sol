@@ -127,9 +127,11 @@ contract Y2123 is ERC721A, Ownable, Pausable, ReentrancyGuard {
     uint256 total = totalSupply();
     uint256 count = balanceOf(addr);
     uint256[] memory tokens = new uint256[](count);
+    uint256 tokenIndex = 0;
     for (uint256 i; i < total; i++) {
       if (addr == ownerOf(i)) {
-        tokens[i] = i;
+        tokens[tokenIndex] = i;
+        tokenIndex++;
       }
     }
     return tokens;

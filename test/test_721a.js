@@ -81,16 +81,16 @@ describe("Y2123 Contract", function () {
   it("Public sale minting", async () => {
     const nftPrice = await yContract.mintPrice();
     let tokenId = await yContract.totalSupply();
-    console.log("nftPrice is %s", ethers.utils.formatEther(nftPrice));
+    //console.log("nftPrice is %s", ethers.utils.formatEther(nftPrice));
 
-    await expect(yContract.paidMint(1, [], { value: nftPrice })).to.be.revertedWith("Sale not enabled");
+    await expect(yContract.paidMint(1, [], { value: ethers.BigNumber.from(nftPrice) })).to.be.revertedWith("Sale not enabled");
 
     await yContract.toggleSale();
     await yContract.togglePresale();
 
-    await expect(yContract.paidMint(2, [], { value: BigInt(nftPrice) })).to.be.revertedWith("More ETH please");
+    await expect(yContract.paidMint(2, [], { value: ethers.BigNumber.from(nftPrice) })).to.be.revertedWith("More ETH please");
 
-    await expect(yContract.paidMint(3, [], { value: BigInt(nftPrice * 3) }))
+    await expect(yContract.paidMint(3, [], { value: ethers.BigNumber.from(nftPrice).mul(3) }))
       .to.emit(yContract, "Transfer")
       .withArgs(ethers.constants.AddressZero, accounts[0].address, tokenId);
 
@@ -100,15 +100,14 @@ describe("Y2123 Contract", function () {
     expect(await yContract.getTokenIDs(accounts[0].address)).to.eql([ethers.BigNumber.from(0), ethers.BigNumber.from(1), ethers.BigNumber.from(2)]);
 
     tokenId = await yContract.totalSupply();
-    await yContract.connect(accounts[1]).paidMint(2, [], { value: ethers.BigNumber.from(nftPrice).mul(2) });
-    /*
-    await expect(yContract.connect(accounts[1]).paidMint(2, [], { value: nftPrice * 2 }))
+    await expect(yContract.connect(accounts[1]).paidMint(2, [], { value: ethers.BigNumber.from(nftPrice).mul(2) }))
       .to.emit(yContract, "Transfer")
       .withArgs(ethers.constants.AddressZero, accounts[1].address, tokenId);
 
     expect(await yContract.getTokenIDs(accounts[1].address)).to.eql([ethers.BigNumber.from(3), ethers.BigNumber.from(4)]);
 
-    await expect(yContract.paidMint(2, [], { value: BigInt(nftPrice * 2) }))
+    tokenId = await yContract.totalSupply();
+    await expect(yContract.paidMint(2, [], { value: ethers.BigNumber.from(nftPrice).mul(2) }))
       .to.emit(yContract, "Transfer")
       .withArgs(ethers.constants.AddressZero, accounts[0].address, tokenId);
 
@@ -120,29 +119,30 @@ describe("Y2123 Contract", function () {
     expect(await yContract.availableSupplyIndex()).to.equal(450);
 
     const maxMintPerTxPlus1 = (await yContract.maxMintPerTx()) + 1;
-    await expect(yContract.paidMint(maxMintPerTxPlus1, [], { value: BigInt(nftPrice * maxMintPerTxPlus1) })).to.be.revertedWith("Exceeded max mint per transaction");
+    await expect(yContract.paidMint(maxMintPerTxPlus1, [], { value: ethers.BigNumber.from(nftPrice).mul(maxMintPerTxPlus1) })).to.be.revertedWith("Exceeded max mint per transaction");
 
     await expect(yContract.setMaxSupply(1)).to.be.revertedWith("Value lower than total supply");
 
     await expect(yContract.setMaxSupply(49)).to.be.revertedWith("Value lower than total reserve & free mints");
 
-    await yContract.setMaxSupply(54);
+    //Minted so far 7
+    await yContract.setMaxSupply(58);
 
     tokenId = await yContract.totalSupply();
-    await expect(yContract.paidMint(1, [], { value: nftPrice }))
+    await expect(yContract.paidMint(1, [], { value: ethers.BigNumber.from(nftPrice) }))
       .to.emit(yContract, "Transfer")
       .withArgs(ethers.constants.AddressZero, accounts[0].address, tokenId);
 
-    expect(await yContract.availableSupplyIndex()).to.equal(4);
+    //Minted so far 8
+    expect(await yContract.availableSupplyIndex()).to.equal(8);
 
-    await expect(yContract.paidMint(1, [], { value: nftPrice })).to.be.revertedWith("Please try minting with less, not enough supply!");
+    await expect(yContract.paidMint(1, [], { value: ethers.BigNumber.from(nftPrice) })).to.be.revertedWith("Please try minting with less, not enough supply!");
 
     expect(await yContract.tokenURI(0)).to.equal(uri + "0");
 
     await yContract.setBaseURI("ipfs://Test123/");
     expect(await yContract.tokenURI(0)).to.equal("ipfs://Test123/0");
     expect(await yContract.tokenURI(1)).to.equal("ipfs://Test123/1");
-    */
   });
 
   /*
