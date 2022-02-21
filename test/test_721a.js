@@ -404,7 +404,7 @@ describe("Y2123 Contract", function () {
       tokenId = await yContract.totalSupply();
       proof = merkleTree.getHexProof(keccak256(accounts[i].address));
       //console.log("owner proof is %s", proof);
-      await expect(yContract.connect(accounts[i]).paidMint(2, proof, { value: BigInt(nftPrice * 2), }))
+      await expect(yContract.connect(accounts[i]).paidMint(2, proof, { value: ethers.BigNumber.from(nftPrice).mul(2), }))
         .to.emit(yContract, "Transfer")
         .withArgs(ethers.constants.AddressZero, accounts[i].address, tokenId);
 
@@ -438,7 +438,7 @@ describe("Y2123 Contract", function () {
     // Public mint 3 each
     for (let i = 0; i < accounts.length; i++) {
       tokenId = await yContract.totalSupply();
-      await expect(yContract.connect(accounts[i]).paidMint(3, proof, { value: BigInt(nftPrice * 3), }))
+      await expect(yContract.connect(accounts[i]).paidMint(3, proof, { value: ethers.BigNumber.from(nftPrice).mul(3), }))
         .to.emit(yContract, "Transfer")
         .withArgs(ethers.constants.AddressZero, accounts[i].address, tokenId);
     }
@@ -456,7 +456,7 @@ describe("Y2123 Contract", function () {
       tokenId = await yContract.totalSupply();
       proof = merkleTree.getHexProof(keccak256(accounts[i].address));
       //console.log("owner proof is %s", proof);
-      await expect(yContract.connect(accounts[i]).paidMint(2, proof, { value: BigInt(nftPrice * 2), }))
+      await expect(yContract.connect(accounts[i]).paidMint(2, proof, { value: ethers.BigNumber.from(nftPrice).mul(2), }))
         .to.emit(yContract, "Transfer")
         .withArgs(ethers.constants.AddressZero, accounts[i].address, tokenId);
     }
@@ -476,7 +476,7 @@ describe("Y2123 Contract", function () {
     // Public mint again
     for (let i = 0; i < accounts.length; i++) {
       tokenId = await yContract.totalSupply();
-      await expect(yContract.connect(accounts[i]).paidMint(20, proof, { value: BigInt(nftPrice * 20), }))
+      await expect(yContract.connect(accounts[i]).paidMint(20, proof, { value: ethers.BigNumber.from(nftPrice).mul(20), }))
         .to.emit(yContract, "Transfer")
         .withArgs(ethers.constants.AddressZero, accounts[i].address, tokenId);
     }

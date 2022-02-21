@@ -18,7 +18,6 @@ describe("Clans Contract", function () {
     const clan_uri = "https://api.y2123.io/clan-asset?id=";
     cContract = await contract.deploy(clan_uri, oContract.address, yContract.address);
     await cContract.deployed();
-    //await cContract.setTokenContract(oContract.address);
 
     await oContract.addAdmin(cContract.address);
 
@@ -67,16 +66,19 @@ describe("Clans Contract", function () {
 
     const nftPrice = await yContract.mintPrice();
     let tokenId = await yContract.totalSupply();
-    await expect(yContract.paidMint(3, [], { value: BigInt(nftPrice * 3) }))
+    await expect(yContract.paidMint(3, [], { value: ethers.BigNumber.from(nftPrice).mul(3) }))
       .to.emit(yContract, "Transfer")
       .withArgs(ethers.constants.AddressZero, accounts[0].address, tokenId);
 
-    await yContract.connect(accounts[1]).paidMint(3, [], { value: BigInt(nftPrice * 3) });
+    await yContract.connect(accounts[1]).paidMint(3, [], { value: ethers.BigNumber.from(nftPrice).mul(3) });
 
     await yContract.addAdmin(cContract.address);
     await cContract.addContract(yContract.address);
+
+    await yContract.setApprovalForAll(cContract.address, true);
     await cContract.stake(yContract.address, [0, 1, 2], 1);
 
+    await yContract.connect(accounts[1]).setApprovalForAll(cContract.address, true);
     await cContract.connect(accounts[1]).stake(yContract.address, [3, 4], 4);
     //Elligible to be leader now that have changed clan
     expect(await cContract.shouldChangeLeader(accounts[1].address, clanId, 111)).to.equal(true);
