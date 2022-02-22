@@ -267,8 +267,8 @@ contract Clans is IClans, ERC1155, EIP712, Ownable, ReentrancyGuard {
     emit Claim(_msgSender(), oxgnTokenClaim, oxgnTokenDonate, clanId, clanTokenClaim, benificiaryOfTax, oxgnTokenTax, timestamp);
   }
 
-  function withdrawForDonation() external onlyOwner {
-    uint256 amount = oxgnToken.balanceOf(address(this));
+  function withdrawForDonation(uint256 amount) external onlyOwner {
+    require(amount <= oxgnToken.balanceOf(address(this)), "amount exceeds balance");
     oxgnToken.transfer(_msgSender(), amount);
   }
 

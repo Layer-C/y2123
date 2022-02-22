@@ -93,7 +93,6 @@ describe("Clans Contract", function () {
     expect(acc[0]).to.eql(accounts[0].address);
     expect(acc[1]).to.eql(accounts[1].address);
 
-
     const clanRecords = await cContract.getClanRecords(1);
     //console.log(clanRecords);
     expect(clanRecords.entity[0]).to.eql(accounts[0].address);
@@ -126,5 +125,9 @@ describe("Clans Contract", function () {
     await cContract.connect(accounts[1]).unstake(y2Contract.address, [3]);
 
     expect(await cContract.stakedTokensOfOwner(y2Contract.address, accounts[1].address)).to.eql([ethers.BigNumber.from(4)]);
+
+    await oContract.mint(cContract.address, ethers.utils.parseEther("100.0"));
+    await cContract.withdrawForDonation(ethers.utils.parseEther("50.0"))
+    await expect(cContract.withdrawForDonation(ethers.utils.parseEther("51.0"))).to.be.revertedWith("amount exceeds balance");
   });
 });
