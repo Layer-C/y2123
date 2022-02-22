@@ -120,5 +120,11 @@ describe("Clans Contract", function () {
 
     await y2Contract.connect(accounts[1]).setApprovalForAll(cContract.address, true);
     await cContract.connect(accounts[1]).stake(y2Contract.address, [3, 4], 4);
+
+    expect(await cContract.stakedTokensOfOwner(y2Contract.address, accounts[1].address)).to.eql([ethers.BigNumber.from(3), ethers.BigNumber.from(4)]);
+
+    await cContract.connect(accounts[1]).unstake(y2Contract.address, [3]);
+
+    expect(await cContract.stakedTokensOfOwner(y2Contract.address, accounts[1].address)).to.eql([ethers.BigNumber.from(4)]);
   });
 });

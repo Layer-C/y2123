@@ -69,6 +69,10 @@ contract Clans is IClans, ERC1155, EIP712, Ownable, ReentrancyGuard {
     baseURI = newBaseURI;
   }
 
+  function setY2123Nft(address _y2123Nft) public onlyOwner {
+    y2123Nft = _y2123Nft;
+  }
+
   function toggleFeatureFlagCreateClan() external onlyOwner {
     featureFlagCreateClan = !featureFlagCreateClan;
   }

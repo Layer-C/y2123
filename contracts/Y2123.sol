@@ -40,7 +40,6 @@ contract Y2123 is ERC721A, Ownable, ReentrancyGuard {
 
   mapping(address => uint256) public freeMintMinted;
   mapping(address => uint256) public whitelistMinted;
-  mapping(address => uint256) public addressMinted;
 
   event Minted(address indexed addr, uint256 indexed id, bool recipientOrigin);
   event Burned(uint256 indexed id);
@@ -198,7 +197,7 @@ contract Y2123 is ERC721A, Ownable, ReentrancyGuard {
     require(payable(msg.sender).send(address(this).balance));
   }
 
-  /** ADMIN */
+  /** ADMIN (maybe remove)*/
 
   function addAdmin(address addr) external onlyOwner {
     require(addr != address(0), "empty address");
