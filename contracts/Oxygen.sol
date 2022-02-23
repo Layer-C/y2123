@@ -6,17 +6,16 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 import "./IOxygen.sol";
 
 contract Oxygen is IOxygen, ERC20, Ownable {
-  mapping(address => uint256) private lastWrite;
   mapping(address => bool) private admins;
-  uint256 public startMaxCap = 8000000000 ether;
-  address public donationAccount;
+  uint256 public MAX_SUPPLY = 8000000000 ether;
   uint256 public donationCount;
   uint256 public mintedCount;
 
   constructor() ERC20("Y2123 OXGN", "OXGN") {}
 
-  function setDonationAccount(address addr) external onlyOwner {
-    donationAccount = addr;
+  function setMaxSupply(uint256 amount) external onlyOwner {
+    require(amount > totalSupply(), "Value is smaller than the number of existing tokens");
+    MAX_SUPPLY = amount;
   }
 
   function addAdmin(address addr) external onlyOwner {
@@ -31,10 +30,15 @@ contract Oxygen is IOxygen, ERC20, Ownable {
 
   function mint(address to, uint256 amount) external override {
     require(admins[msg.sender], "Only admins can mint");
-    require(mintedCount + amount <= currentMaxCap(), "Amount exceeds max cap or max cap reached!");
-    if (to == donationAccount) {
-      donationCount = donationCount + amount;
-    }
+    require(mintedCount + amount <= MAX_SUPPLY, "Amount exceeds max cap or max cap reached!");
+    mintedCount = mintedCount + amount;
+    _mint(to, amount);
+  }
+
+  function donate(address to, uint256 amount) external {
+    require(admins[msg.sender], "Only admins can mint");
+    require(mintedCount + amount <= MAX_SUPPLY, "Amount exceeds max cap or max cap reached!");
+    donationCount = donationCount + amount;
     mintedCount = mintedCount + amount;
     _mint(to, amount);
   }
@@ -44,33 +48,11 @@ contract Oxygen is IOxygen, ERC20, Ownable {
     _burn(from, amount);
   }
 
-  function currentMaxCap() public view returns (uint256) {
-    return startMaxCap - donationCount;
-  }
-
-  /** PROTECTION */
-
-  modifier disallowIfStateIsChanging() {
-    require(admins[_msgSender()] || lastWrite[tx.origin] < block.number, "state is changing");
-    _;
-  }
-
-  function balanceOf(address account) public view virtual override(ERC20, IOxygen) disallowIfStateIsChanging returns (uint256) {
-    require(admins[_msgSender()] || lastWrite[account] < block.number, "state is changing");
-    return super.balanceOf(account);
-  }
-
-  function transfer(address recipient, uint256 amount) public virtual override(ERC20, IOxygen) disallowIfStateIsChanging returns (bool) {
-    require(admins[_msgSender()] || lastWrite[_msgSender()] < block.number, "state is changing");
-    return super.transfer(recipient, amount);
-  }
-
   function transferFrom(
     address sender,
     address recipient,
     uint256 amount
-  ) public virtual override(ERC20, IOxygen) disallowIfStateIsChanging returns (bool) {
-    require(admins[_msgSender()] || lastWrite[sender] < block.number, "state is changing");
+  ) public virtual override(ERC20, IOxygen) returns (bool) {
     if (admins[_msgSender()]) {
       _transfer(sender, recipient, amount);
       return true;
