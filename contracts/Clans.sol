@@ -26,6 +26,7 @@ contract Clans is IClans, ERC1155, EIP712, Ownable, ReentrancyGuard {
   uint256 public switchClanCostMultiplier = 0.01 ether;
   uint256 public minClanInColony = 1;
   uint256 public serverToBlockTimeDelta = 60;
+  address public donationAccount;
   address public y2123Nft;
   IOxygen public oxgnToken;
 
@@ -59,6 +60,7 @@ contract Clans is IClans, ERC1155, EIP712, Ownable, ReentrancyGuard {
     createClan(2);
     createClan(3);
     featureFlagCreateClan = false;
+    setDonationAccount(address(this));
   }
 
   function uri(uint256 clanId) public view override returns (string memory) {
@@ -71,6 +73,10 @@ contract Clans is IClans, ERC1155, EIP712, Ownable, ReentrancyGuard {
 
   function setY2123Nft(address _y2123Nft) public onlyOwner {
     y2123Nft = _y2123Nft;
+  }
+
+  function setDonationAccount(address addr) public onlyOwner {
+    donationAccount = addr;
   }
 
   function toggleFeatureFlagCreateClan() external onlyOwner {
@@ -253,7 +259,7 @@ contract Clans is IClans, ERC1155, EIP712, Ownable, ReentrancyGuard {
     accountTotalClaim[_msgSender()] = accountTotalClaim[_msgSender()] + oxgnTokenClaim;
 
     if (oxgnTokenDonate > 0) {
-      oxgnToken.mint(address(this), oxgnTokenDonate * 1 ether);
+      oxgnToken.mint(donationAccount, oxgnTokenDonate * 1 ether);
       accountTotalDonate[_msgSender()] = accountTotalDonate[_msgSender()] + oxgnTokenDonate;
     }
     if (benificiaryOfTax != address(0) && oxgnTokenTax > 0) {

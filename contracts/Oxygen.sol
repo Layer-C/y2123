@@ -8,6 +8,7 @@ import "./IOxygen.sol";
 contract Oxygen is IOxygen, ERC20, Ownable {
   mapping(address => bool) private admins;
   uint256 public MAX_SUPPLY = 8000000000 ether;
+  uint256 public rewardCount;
   uint256 public donationCount;
   uint256 public mintedCount;
 
@@ -35,10 +36,21 @@ contract Oxygen is IOxygen, ERC20, Ownable {
     _mint(to, amount);
   }
 
+  function reward(address to, uint256 amount) external {
+    require(admins[msg.sender], "Only admins can mint");
+    require(mintedCount + amount <= MAX_SUPPLY, "Amount exceeds max cap or max cap reached!");
+    require(rewardCount <= MAX_SUPPLY*4/10, "Amount exceeds 40% rewards pool!");
+    rewardCount = rewardCount + amount;
+    mintedCount = mintedCount + amount;
+    _mint(to, amount);
+    //create 0.5 tokens for reserve
+  }
+
   function donate(address to, uint256 amount) external {
     require(admins[msg.sender], "Only admins can mint");
     require(mintedCount + amount <= MAX_SUPPLY, "Amount exceeds max cap or max cap reached!");
     donationCount = donationCount + amount;
+    rewardCount = rewardCount + amount;
     mintedCount = mintedCount + amount;
     _mint(to, amount);
   }
@@ -46,6 +58,11 @@ contract Oxygen is IOxygen, ERC20, Ownable {
   function burn(address from, uint256 amount) external override {
     require(admins[msg.sender], "Only admins can burn");
     _burn(from, amount);
+  }
+
+  function withdrawReserve(uint256 amount) external onlyOwner {
+    require(amount <= balanceOf(address(this)), "amount exceeds balance");
+    transfer(_msgSender(), amount);
   }
 
   function transferFrom(
