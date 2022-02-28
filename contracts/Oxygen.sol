@@ -39,7 +39,7 @@ contract Oxygen is IOxygen, ERC20, Ownable {
   function reward(address to, uint256 amount) external {
     require(admins[msg.sender], "Only admins can mint");
     require(mintedCount + amount <= MAX_SUPPLY, "Amount exceeds max cap or max cap reached!");
-    require(rewardCount <= MAX_SUPPLY*4/10, "Amount exceeds 40% rewards pool!");
+    require(rewardCount <= MAX_SUPPLY*2/5, "Amount exceeds 40% rewards pool!");
     rewardCount = rewardCount + amount;
     mintedCount = mintedCount + amount;
     _mint(to, amount);
