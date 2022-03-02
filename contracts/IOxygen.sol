@@ -6,6 +6,12 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 interface IOxygen is IERC20 {
   function mint(address to, uint256 amount) external;
 
+  function reward(address to, uint256 amount) external;
+
+  function donate(address to, uint256 amount) external;
+
+  function tax(address to, uint256 amount) external;
+
   function burn(address from, uint256 amount) external;
 
   function transferFrom(

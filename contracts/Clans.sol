@@ -252,18 +252,18 @@ contract Clans is IClans, ERC1155, EIP712, Ownable, ReentrancyGuard {
       require(timestamp > block.timestamp - serverToBlockTimeDelta, "session expired");
     }
 
-    oxgnToken.mint(_msgSender(), oxgnTokenClaim * 1 ether);
+    oxgnToken.reward(_msgSender(), oxgnTokenClaim * 1 ether);
     addressToNonce[_msgSender()].increment();
     uint256 clanId = clanStructs[_msgSender()].clanId;
     accountToLastClaim[_msgSender()] = ClaimInfo(oxgnTokenClaim, oxgnTokenDonate, clanId, clanTokenClaim, benificiaryOfTax, oxgnTokenTax, accountNonce(_msgSender()), timestamp, block.timestamp);
     accountTotalClaim[_msgSender()] = accountTotalClaim[_msgSender()] + oxgnTokenClaim;
 
     if (oxgnTokenDonate > 0) {
-      oxgnToken.mint(donationAccount, oxgnTokenDonate * 1 ether);
+      oxgnToken.donate(donationAccount, oxgnTokenDonate * 1 ether);
       accountTotalDonate[_msgSender()] = accountTotalDonate[_msgSender()] + oxgnTokenDonate;
     }
     if (benificiaryOfTax != address(0) && oxgnTokenTax > 0) {
-      oxgnToken.mint(benificiaryOfTax, oxgnTokenTax * 1 ether);
+      oxgnToken.tax(benificiaryOfTax, oxgnTokenTax * 1 ether);
     }
     if (clanId > 0 && clanId < clanIdTracker.current() && clanTokenClaim > 0) {
       _mint(_msgSender(), clanId, clanTokenClaim, "");
