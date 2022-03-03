@@ -33,9 +33,8 @@ describe("Clans Contract", function () {
   });
 
   it("Oxgn functions", async () => {
-    // test out max cap minting
-
     expect(await oContract.mintedCount()).to.equal(ethers.utils.parseEther("0"));
+    expect(await oContract.burnedCount()).to.equal(ethers.utils.parseEther("0"));
     expect(await oContract.MAX_SUPPLY()).to.equal(ethers.BigNumber.from(0));
     expect(await oContract.rewardCount()).to.equal(ethers.BigNumber.from(0));
     expect(await oContract.donationCount()).to.equal(ethers.BigNumber.from(0));
@@ -68,6 +67,64 @@ describe("Clans Contract", function () {
 
     expect(await oContract.mintedCount()).to.equal(ethers.utils.parseEther("200"));
     expect(await oContract.burnedCount()).to.equal(ethers.utils.parseEther("100"));
+    expect(await oContract.totalSupply()).to.equal(ethers.utils.parseEther("100"));
+
+    await oContract.donate(accounts[0].address, ethers.utils.parseEther("100.0"));
+    expect(await oContract.balanceOf(accounts[0].address)).to.equal(ethers.utils.parseEther("140.0"));
+
+    await oContract.donate(accounts[1].address, ethers.utils.parseEther("100.0"));
+    expect(await oContract.balanceOf(accounts[1].address)).to.equal(ethers.utils.parseEther("160.0"));
+
+    expect(await oContract.donationCount()).to.equal(ethers.utils.parseEther("200"));
+    expect(await oContract.rewardCount()).to.equal(ethers.utils.parseEther("200"));
+
+    await oContract.tax(accounts[0].address, ethers.utils.parseEther("100.0"));
+    expect(await oContract.balanceOf(accounts[0].address)).to.equal(ethers.utils.parseEther("240.0"));
+
+    await oContract.tax(accounts[1].address, ethers.utils.parseEther("100.0"));
+    expect(await oContract.balanceOf(accounts[1].address)).to.equal(ethers.utils.parseEther("260.0"));
+
+    expect(await oContract.taxCount()).to.equal(ethers.utils.parseEther("200"));
+    expect(await oContract.rewardCount()).to.equal(ethers.utils.parseEther("400"));
+
+    //REWARD
+    await oContract.reward(accounts[0].address, ethers.utils.parseEther("100.0"));
+    expect(await oContract.balanceOf(accounts[0].address)).to.equal(ethers.utils.parseEther("340.0"));
+
+    await oContract.reward(accounts[1].address, ethers.utils.parseEther("100.0"));
+    expect(await oContract.balanceOf(accounts[1].address)).to.equal(ethers.utils.parseEther("360.0"));
+
+    expect(await oContract.rewardCount()).to.equal(ethers.utils.parseEther("600"));
+
+    //Set MaxSupply
+    let supply = await oContract.totalSupply();
+    await expect(oContract.setMaxSupply(supply))
+      .to.be.revertedWith("Value is smaller than the number of existing tokens");
+
+    await oContract.setMaxSupply(supply + ethers.utils.parseEther("1000.0"));
+
+    await expect(oContract.setMaxSupply(supply + ethers.utils.parseEther("2000.0")))
+      .to.be.revertedWith("Token cap has been already set");
+
+    expect(await oContract.MAX_SUPPLY()).to.equal(supply + ethers.utils.parseEther("1000.0"));
+    expect(await oContract.tokenCapSet()).to.equal(true);
+
+    //REWARD AFTER SET MaxSupply
+    await oContract.reward(accounts[0].address, ethers.utils.parseEther("100.0"));
+    expect(await oContract.balanceOf(accounts[0].address)).to.equal(ethers.utils.parseEther("440.0"));
+
+    await oContract.reward(accounts[1].address, ethers.utils.parseEther("100.0"));
+    expect(await oContract.balanceOf(accounts[1].address)).to.equal(ethers.utils.parseEther("460.0"));
+
+    expect(await oContract.rewardCount()).to.equal(ethers.utils.parseEther("800"));
+    expect(await oContract.balanceOf(oContract.address)).to.equal(ethers.utils.parseEther("100.0"));
+
+    let maxSupply = await oContract.MAX_SUPPLY();
+    await expect(oContract.reward(accounts[1].address, maxSupply))
+      .to.be.revertedWith("Amount exceeds max cap or max cap reached!");
+
+    await expect(oContract.reward(accounts[1].address, ethers.BigNumber.from(maxSupply).mul(2).div(5)))
+      .to.be.revertedWith("Amount exceeds 40% rewards pool!");
 
   });
 

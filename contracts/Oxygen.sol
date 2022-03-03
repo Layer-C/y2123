@@ -47,7 +47,7 @@ contract Oxygen is IOxygen, ERC20, Ownable, ReentrancyGuard {
     require(admins[msg.sender], "Only admins can mint");
     if (tokenCapSet) {
       require(mintedCount + amount <= MAX_SUPPLY, "Amount exceeds max cap or max cap reached!");
-      require(rewardCount <= MAX_SUPPLY*2/5, "Amount exceeds 40% rewards pool!");
+      require(rewardCount + amount <= MAX_SUPPLY*2/5, "Amount exceeds 40% rewards pool!");
     }
     rewardCount = rewardCount + amount;
     mintedCount = mintedCount + amount;
@@ -83,6 +83,12 @@ contract Oxygen is IOxygen, ERC20, Ownable, ReentrancyGuard {
   function withdrawReserve(uint256 amount) external onlyOwner {
     require(amount <= balanceOf(address(this)), "amount exceeds balance");
     transfer(_msgSender(), amount);
+  }
+
+  function burnReserve(uint256 amount) external onlyOwner {
+    require(amount <= balanceOf(address(this)), "amount exceeds balance");
+    burnedCount = burnedCount + amount;
+    _burn(address(this), amount);
   }
 
   function transferFrom(
