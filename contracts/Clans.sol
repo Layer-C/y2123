@@ -22,8 +22,8 @@ contract Clans is IClans, ERC1155, EIP712, Ownable, ReentrancyGuard {
   uint256 public changeLeaderPercentage = 10;
   uint256 public createClanCostMultiplier = 100 ether;
   uint256 public switchColonyCost = 10000 ether;
-  uint256 public switchClanCostBase = 10 ether;
-  uint256 public switchClanCostMultiplier = 0.01 ether;
+  uint256 public switchClanCostBase = 0;
+  uint256 public switchClanCostMultiplier = 0;
   uint256 public minClanInColony = 1;
   uint256 public serverToBlockTimeDelta = 60;
   address public donationAccount;
@@ -460,7 +460,9 @@ contract Clans is IClans, ERC1155, EIP712, Ownable, ReentrancyGuard {
       //switch clan flow
       if (clanStructs[entityAddress].clanId != clanId) {
         uint256 switchClanCost = getSwitchClanCost(clanId);
-        oxgnToken.burn(_msgSender(), switchClanCost);
+        if (switchClanCost > 0) {
+          oxgnToken.burn(_msgSender(), switchClanCost);
+        }
 
         emit SwitchClan(entityAddress, clanStructs[entityAddress].clanId, clanId, switchClanCost);
 

@@ -34,6 +34,41 @@ describe("Clans Contract", function () {
 
   it("Oxgn functions", async () => {
     // test out max cap minting
+
+    expect(await oContract.mintedCount()).to.equal(ethers.utils.parseEther("0"));
+    expect(await oContract.MAX_SUPPLY()).to.equal(ethers.BigNumber.from(0));
+    expect(await oContract.rewardCount()).to.equal(ethers.BigNumber.from(0));
+    expect(await oContract.donationCount()).to.equal(ethers.BigNumber.from(0));
+    expect(await oContract.taxCount()).to.equal(ethers.BigNumber.from(0));
+    expect(await oContract.tokenCapSet()).to.equal(false);
+
+    await oContract.mint(accounts[0].address, ethers.utils.parseEther("100.0"));
+    expect(await oContract.balanceOf(accounts[0].address)).to.equal(ethers.utils.parseEther("100.0"));
+
+    await oContract.mint(accounts[1].address, ethers.utils.parseEther("100.0"));
+    expect(await oContract.balanceOf(accounts[1].address)).to.equal(ethers.utils.parseEther("100.0"));
+
+    await oContract.burn(accounts[0].address, ethers.utils.parseEther("50.0"));
+    expect(await oContract.balanceOf(accounts[0].address)).to.equal(ethers.utils.parseEther("50.0"));
+
+    await oContract.burn(accounts[1].address, ethers.utils.parseEther("50.0"));
+    expect(await oContract.balanceOf(accounts[1].address)).to.equal(ethers.utils.parseEther("50.0"));
+
+    await expect(oContract.connect(accounts[1]).mint(accounts[0].address, ethers.utils.parseEther("100.0")))
+      .to.be.revertedWith("Only admins can mint");
+
+    await expect(oContract.connect(accounts[1]).transferFrom(accounts[1].address, accounts[0].address, ethers.utils.parseEther("10.0")))
+      .to.be.revertedWith("ERC20: insufficient allowance");
+
+    await oContract.transferFrom(accounts[0].address, accounts[1].address, ethers.utils.parseEther("10.0"));
+    expect(await oContract.balanceOf(accounts[1].address)).to.equal(ethers.utils.parseEther("60.0"));
+
+    await expect(oContract.transferFrom(accounts[0].address, accounts[1].address, ethers.utils.parseEther("100.0")))
+      .to.be.revertedWith("ERC20: transfer amount exceeds balance");
+
+    expect(await oContract.mintedCount()).to.equal(ethers.utils.parseEther("200"));
+    expect(await oContract.burnedCount()).to.equal(ethers.utils.parseEther("100"));
+
   });
 
   it("Clan functions", async () => {

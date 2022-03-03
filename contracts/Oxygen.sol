@@ -14,6 +14,7 @@ contract Oxygen is IOxygen, ERC20, Ownable, ReentrancyGuard {
   uint256 public donationCount;
   uint256 public taxCount;
   uint256 public mintedCount;
+  uint256 public burnedCount;
 
   constructor() ERC20("Y2123 OXGN", "OXGN") {}
 
@@ -75,6 +76,7 @@ contract Oxygen is IOxygen, ERC20, Ownable, ReentrancyGuard {
 
   function burn(address from, uint256 amount) external override nonReentrant {
     require(admins[msg.sender], "Only admins can burn");
+    burnedCount = burnedCount + amount;
     _burn(from, amount);
   }
 
