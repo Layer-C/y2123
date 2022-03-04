@@ -126,6 +126,21 @@ describe("Clans Contract", function () {
     await expect(oContract.reward(accounts[1].address, ethers.BigNumber.from(maxSupply).mul(2).div(5)))
       .to.be.revertedWith("Amount exceeds 40% rewards pool!");
 
+    let reserve = await oContract.balanceOf(oContract.address);
+    await expect(oContract.withdrawReserve(accounts[1].address, reserve + ethers.utils.parseEther("1.0")))
+      .to.be.revertedWith("amount exceeds balance");
+
+    let acc0 = await oContract.balanceOf(accounts[0].address);
+    let acc1 = await oContract.balanceOf(accounts[1].address);
+    console.log(acc0);
+    console.log(reserve);
+    await oContract.connect(accounts[0]).withdrawReserve(accounts[1].address, reserve);
+    reserve = await oContract.balanceOf(oContract.address);
+    console.log(reserve);
+    expect(await oContract.balanceOf(accounts[1].address)).to.equal(ethers.BigNumber.from(acc1).add(reserve));
+
+    await oContract.connect(accounts[0]).burnReserve(ethers.BigNumber.from(reserve));
+    console.log(reserve);
   });
 
   it("Clan functions", async () => {
