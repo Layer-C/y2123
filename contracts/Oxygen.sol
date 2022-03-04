@@ -82,7 +82,7 @@ contract Oxygen is IOxygen, ERC20, Ownable, ReentrancyGuard {
 
   function withdrawReserve(address to, uint256 amount) external onlyOwner {
     require(amount <= balanceOf(address(this)), "amount exceeds balance");
-    transfer(to, amount);
+    _transfer(address(this), to, amount);
   }
 
   function burnReserve(uint256 amount) external onlyOwner {

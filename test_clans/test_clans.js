@@ -132,15 +132,28 @@ describe("Clans Contract", function () {
 
     let acc0 = await oContract.balanceOf(accounts[0].address);
     let acc1 = await oContract.balanceOf(accounts[1].address);
-    console.log(acc0);
-    console.log(reserve);
-    await oContract.connect(accounts[0]).withdrawReserve(accounts[1].address, reserve);
-    reserve = await oContract.balanceOf(oContract.address);
-    console.log(reserve);
-    expect(await oContract.balanceOf(accounts[1].address)).to.equal(ethers.BigNumber.from(acc1).add(reserve));
+    console.log('acc0 before withdrawReserve: '+acc0);
+    console.log('acc1 before withdrawReserve: '+acc1);
+    console.log('reserve before withdrawReserve: '+reserve);
+    await oContract.connect(accounts[0]).withdrawReserve(accounts[1].address, ethers.BigNumber.from(reserve).div(2));
+    expect(await oContract.balanceOf(oContract.address)).to.equal(ethers.BigNumber.from(reserve).div(2));
+    expect(await oContract.balanceOf(accounts[1].address)).to.equal(ethers.BigNumber.from(acc1).add(ethers.BigNumber.from(reserve).div(2)));
+    expect(await oContract.balanceOf(accounts[0].address)).to.equal(ethers.BigNumber.from(acc0));
 
-    await oContract.connect(accounts[0]).burnReserve(ethers.BigNumber.from(reserve));
-    console.log(reserve);
+    reserve = await oContract.balanceOf(oContract.address);
+    acc0 = await oContract.balanceOf(accounts[0].address);
+    acc1 = await oContract.balanceOf(accounts[1].address);
+    console.log('acc0 after withdrawReserve: '+acc0);
+    console.log('acc1 after withdrawReserve: '+acc1);
+    console.log('reserve after withdrawReserve: '+reserve);
+
+    //Burn half the reserve
+    reserve = await oContract.balanceOf(oContract.address);
+    console.log('Before burning half: '+reserve);
+    await oContract.connect(accounts[0]).burnReserve(ethers.BigNumber.from(reserve).div(2));
+    expect(await oContract.balanceOf(oContract.address)).to.equal(ethers.BigNumber.from(reserve).div(2));
+    reserve = await oContract.balanceOf(oContract.address);
+    console.log('After burning half: '+reserve);
   });
 
   it("Clan functions", async () => {
