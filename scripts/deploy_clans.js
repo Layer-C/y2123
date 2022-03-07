@@ -2,7 +2,7 @@ const { utils } = require("ethers");
 
 async function main() {
   // Get owner/deployer's wallet address
-  const [owner] = await hre.ethers.getSigners();
+  //const [owner] = await hre.ethers.getSigners();
 
   // Get contract that we want to deploy
   const contractFactory = await hre.ethers.getContractFactory("Clans");

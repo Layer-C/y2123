@@ -2,8 +2,7 @@ require("@nomiclabs/hardhat-waffle");
 require("@nomiclabs/hardhat-etherscan");
 require("dotenv").config();
 
-const { ALCHEMY_API_KEY, TEST1_PK, TEST2_PK, TEST3_PK, ETHERSCAN_API } =
-  process.env;
+const { ALCHEMY_API_KEY, ETHERSCAN_API, TEST1_PK, DEPLOY_PK } = process.env;
 
 // You need to export an object to set up your config
 // Go to https://hardhat.org/config/ to learn more
@@ -25,7 +24,7 @@ module.exports = {
   networks: {
     mainnet: {
       url: `https://eth-mainnet.alchemyapi.io/v2/${ALCHEMY_API_KEY}`,
-      accounts: [TEST1_PK],
+      accounts: [DEPLOY_PK],
     },
     rinkeby: {
       url: `https://eth-rinkeby.alchemyapi.io/v2/${ALCHEMY_API_KEY}`,
