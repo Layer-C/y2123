@@ -3,10 +3,7 @@ pragma solidity ^0.8.11;
 
 /*
 
-Y2123 Game
-
-Impact driven blockchain game with collaborative protocol.
-Save our planet by completing missions.
+Y2123 CS
 
 y2123.com
 
@@ -15,7 +12,7 @@ y2123.com
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import {MerkleProof} from "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
-import "./ERC721A.sol";
+import "erc721a/contracts/ERC721A.sol";
 
 contract Y2123 is ERC721A, Ownable, ReentrancyGuard {
   mapping(address => bool) private admins;
@@ -195,17 +192,5 @@ contract Y2123 is ERC721A, Ownable, ReentrancyGuard {
 
   function withdrawAll() external onlyOwner {
     require(payable(msg.sender).send(address(this).balance));
-  }
-
-  /** ADMIN (maybe remove)*/
-
-  function addAdmin(address addr) external onlyOwner {
-    require(addr != address(0), "empty address");
-    admins[addr] = true;
-  }
-
-  function removeAdmin(address addr) external onlyOwner {
-    require(addr != address(0), "empty address");
-    admins[addr] = false;
   }
 }

@@ -12,19 +12,18 @@
   "license": "ISC",
   "devDependencies": {
     "@nomiclabs/hardhat-ethers": "^2.0.5",
-    "@nomiclabs/hardhat-waffle": "^2.0.2",
-    "chai": "^4.3.6",
-    "ethereum-waffle": "^3.4.0",
-    "ethers": "^5.5.4",
-    "hardhat": "^2.8.4",
-    "prettier": "^2.5.1",
-    "prettier-plugin-solidity": "^1.0.0-beta.19"
-  },
-  "dependencies": {
-    "@nomiclabs/hardhat-etherscan": "^3.0.1",
+    "@nomiclabs/hardhat-waffle": "^2.0.3",
+    "@nomiclabs/hardhat-etherscan": "^3.0.3",
     "@openzeppelin/contracts": "^4.5.0",
     "dotenv": "^16.0.0",
     "keccak256": "^1.0.6",
-    "merkletreejs": "^0.2.30"
+    "merkletreejs": "^0.2.31",
+    "chai": "^4.3.6",
+    "erc721a": "^3.1.0",
+    "ethereum-waffle": "^3.4.0",
+    "ethers": "^5.6.1",
+    "hardhat": "^2.9.1",
+    "prettier": "^2.6.0",
+    "prettier-plugin-solidity": "^1.0.0-beta.19"
   }
 }

@@ -53,17 +53,14 @@ describe("Clans Contract", function () {
     await oContract.burn(accounts[1].address, ethers.utils.parseEther("50.0"));
     expect(await oContract.balanceOf(accounts[1].address)).to.equal(ethers.utils.parseEther("50.0"));
 
-    await expect(oContract.connect(accounts[1]).mint(accounts[0].address, ethers.utils.parseEther("100.0")))
-      .to.be.revertedWith("Only admins can mint");
+    await expect(oContract.connect(accounts[1]).mint(accounts[0].address, ethers.utils.parseEther("100.0"))).to.be.revertedWith("Only admins can mint");
 
-    await expect(oContract.connect(accounts[1]).transferFrom(accounts[1].address, accounts[0].address, ethers.utils.parseEther("10.0")))
-      .to.be.revertedWith("ERC20: insufficient allowance");
+    await expect(oContract.connect(accounts[1]).transferFrom(accounts[1].address, accounts[0].address, ethers.utils.parseEther("10.0"))).to.be.revertedWith("ERC20: insufficient allowance");
 
     await oContract.transferFrom(accounts[0].address, accounts[1].address, ethers.utils.parseEther("10.0"));
     expect(await oContract.balanceOf(accounts[1].address)).to.equal(ethers.utils.parseEther("60.0"));
 
-    await expect(oContract.transferFrom(accounts[0].address, accounts[1].address, ethers.utils.parseEther("100.0")))
-      .to.be.revertedWith("ERC20: transfer amount exceeds balance");
+    await expect(oContract.transferFrom(accounts[0].address, accounts[1].address, ethers.utils.parseEther("100.0"))).to.be.revertedWith("ERC20: transfer amount exceeds balance");
 
     expect(await oContract.mintedCount()).to.equal(ethers.utils.parseEther("200"));
     expect(await oContract.burnedCount()).to.equal(ethers.utils.parseEther("100"));
@@ -98,13 +95,11 @@ describe("Clans Contract", function () {
 
     //Set MaxSupply
     let supply = await oContract.totalSupply();
-    await expect(oContract.setMaxSupply(supply))
-      .to.be.revertedWith("Value is smaller than the number of existing tokens");
+    await expect(oContract.setMaxSupply(supply)).to.be.revertedWith("Value is smaller than the number of existing tokens");
 
     await oContract.setMaxSupply(supply + ethers.utils.parseEther("1000.0"));
 
-    await expect(oContract.setMaxSupply(supply + ethers.utils.parseEther("2000.0")))
-      .to.be.revertedWith("Token cap has been already set");
+    await expect(oContract.setMaxSupply(supply + ethers.utils.parseEther("2000.0"))).to.be.revertedWith("Token cap has been already set");
 
     expect(await oContract.MAX_SUPPLY()).to.equal(supply + ethers.utils.parseEther("1000.0"));
     expect(await oContract.tokenCapSet()).to.equal(true);
@@ -120,21 +115,18 @@ describe("Clans Contract", function () {
     expect(await oContract.balanceOf(oContract.address)).to.equal(ethers.utils.parseEther("100.0"));
 
     let maxSupply = await oContract.MAX_SUPPLY();
-    await expect(oContract.reward(accounts[1].address, maxSupply))
-      .to.be.revertedWith("Amount exceeds max cap or max cap reached!");
+    await expect(oContract.reward(accounts[1].address, maxSupply)).to.be.revertedWith("Amount exceeds max cap or max cap reached!");
 
-    await expect(oContract.reward(accounts[1].address, ethers.BigNumber.from(maxSupply).mul(2).div(5)))
-      .to.be.revertedWith("Amount exceeds 40% rewards pool!");
+    await expect(oContract.reward(accounts[1].address, ethers.BigNumber.from(maxSupply).mul(2).div(5))).to.be.revertedWith("Amount exceeds 40% rewards pool!");
 
     let reserve = await oContract.balanceOf(oContract.address);
-    await expect(oContract.withdrawReserve(accounts[1].address, reserve + ethers.utils.parseEther("1.0")))
-      .to.be.revertedWith("amount exceeds balance");
+    await expect(oContract.withdrawReserve(accounts[1].address, reserve + ethers.utils.parseEther("1.0"))).to.be.revertedWith("amount exceeds balance");
 
     let acc0 = await oContract.balanceOf(accounts[0].address);
     let acc1 = await oContract.balanceOf(accounts[1].address);
-    console.log('acc0 before withdrawReserve: '+acc0);
-    console.log('acc1 before withdrawReserve: '+acc1);
-    console.log('reserve before withdrawReserve: '+reserve);
+    console.log("acc0 before withdrawReserve: " + acc0);
+    console.log("acc1 before withdrawReserve: " + acc1);
+    console.log("reserve before withdrawReserve: " + reserve);
     await oContract.connect(accounts[0]).withdrawReserve(accounts[1].address, ethers.BigNumber.from(reserve).div(2));
     expect(await oContract.balanceOf(oContract.address)).to.equal(ethers.BigNumber.from(reserve).div(2));
     expect(await oContract.balanceOf(accounts[1].address)).to.equal(ethers.BigNumber.from(acc1).add(ethers.BigNumber.from(reserve).div(2)));
@@ -143,17 +135,17 @@ describe("Clans Contract", function () {
     reserve = await oContract.balanceOf(oContract.address);
     acc0 = await oContract.balanceOf(accounts[0].address);
     acc1 = await oContract.balanceOf(accounts[1].address);
-    console.log('acc0 after withdrawReserve: '+acc0);
-    console.log('acc1 after withdrawReserve: '+acc1);
-    console.log('reserve after withdrawReserve: '+reserve);
+    console.log("acc0 after withdrawReserve: " + acc0);
+    console.log("acc1 after withdrawReserve: " + acc1);
+    console.log("reserve after withdrawReserve: " + reserve);
 
     //Burn half the reserve
     reserve = await oContract.balanceOf(oContract.address);
-    console.log('Before burning half: '+reserve);
+    console.log("Before burning half: " + reserve);
     await oContract.connect(accounts[0]).burnReserve(ethers.BigNumber.from(reserve).div(2));
     expect(await oContract.balanceOf(oContract.address)).to.equal(ethers.BigNumber.from(reserve).div(2));
     reserve = await oContract.balanceOf(oContract.address);
-    console.log('After burning half: '+reserve);
+    console.log("After burning half: " + reserve);
   });
 
   it("Clan functions", async () => {
@@ -195,7 +187,7 @@ describe("Clans Contract", function () {
 
     await yContract.connect(accounts[1]).paidMint(3, [], { value: ethers.BigNumber.from(nftPrice).mul(3) });
 
-    await yContract.addAdmin(cContract.address);
+    //await yContract.addAdmin(cContract.address);
     await cContract.addContract(yContract.address);
 
     await yContract.setApprovalForAll(cContract.address, true);
@@ -247,7 +239,7 @@ describe("Clans Contract", function () {
     expect(await cContract.stakedTokensOfOwner(y2Contract.address, accounts[1].address)).to.eql([ethers.BigNumber.from(4)]);
 
     await oContract.mint(cContract.address, ethers.utils.parseEther("100.0"));
-    await cContract.withdrawForDonation(ethers.utils.parseEther("50.0"))
+    await cContract.withdrawForDonation(ethers.utils.parseEther("50.0"));
     await expect(cContract.withdrawForDonation(ethers.utils.parseEther("51.0"))).to.be.revertedWith("amount exceeds balance");
   });
 });
