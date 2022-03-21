@@ -11,10 +11,15 @@ y2123.com
 
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
+import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
+import "@openzeppelin/contracts/utils/Counters.sol";
 import "erc721a/contracts/ERC721A.sol";
+import "./ILand.sol";
+import "./IOxygen.sol";
 
 contract Land is ERC721A, Ownable, ReentrancyGuard {
-  mapping(address => bool) private admins;
+  address public y2123Nft;
+  IOxygen public oxgnToken;
 
   uint256 public MAX_SUPPLY = 500;
   string private baseURI;
@@ -24,6 +29,8 @@ contract Land is ERC721A, Ownable, ReentrancyGuard {
   event Minted(address indexed addr, uint256 indexed id, bool recipientOrigin);
   event Burned(uint256 indexed id);
   event SaleActive(bool active);
+  event Stake(uint256 tokenId, address contractAddress, address owner, uint256 indexed landTokenId);
+  event Unstake(uint256 tokenId, address contractAddress, address owner);
 
   constructor(string memory uri) ERC721A("Y2123.Land", "Y2123.Land") {
     baseURI = uri;
@@ -76,5 +83,113 @@ contract Land is ERC721A, Ownable, ReentrancyGuard {
     require(amount + totalMinted <= MAX_SUPPLY, "Please try minting with less, not enough supply!");
 
     _safeMint(msg.sender, amount);
+  }
+
+  /** STAKING */
+
+  using Counters for Counters.Counter;
+  using EnumerableSet for EnumerableSet.AddressSet;
+  using EnumerableSet for EnumerableSet.UintSet;
+
+  struct StakedContract {
+    bool active;
+    IERC721 instance;
+  }
+
+  mapping(address => mapping(address => EnumerableSet.UintSet)) addressToStakedTokensSet;
+  mapping(address => mapping(uint256 => address)) contractTokenIdToOwner;
+  mapping(address => mapping(uint256 => uint256)) contractTokenIdToStakedTimestamp;
+  mapping(address => StakedContract) public contracts;
+  mapping(address => Counters.Counter) addressToNonce;
+
+  EnumerableSet.AddressSet activeContracts;
+
+  modifier ifContractExists(address contractAddress) {
+    require(activeContracts.contains(contractAddress), "contract does not exists");
+    _;
+  }
+
+  modifier incrementNonce() {
+    addressToNonce[_msgSender()].increment();
+    _;
+  }
+
+  function stake(
+    address contractAddress,
+    uint256[] memory tokenIds,
+    uint256 landTokenId
+  ) external incrementNonce nonReentrant {
+    StakedContract storage _contract = contracts[contractAddress];
+    require(_contract.active, "token contract is not active");
+
+    for (uint256 i = 0; i < tokenIds.length; i++) {
+      uint256 tokenId = tokenIds[i];
+      contractTokenIdToOwner[contractAddress][tokenId] = _msgSender();
+      _contract.instance.transferFrom(_msgSender(), address(this), tokenId);
+      addressToStakedTokensSet[contractAddress][_msgSender()].add(tokenId);
+      contractTokenIdToStakedTimestamp[contractAddress][tokenId] = block.timestamp;
+
+      emit Stake(tokenId, contractAddress, _msgSender(), landTokenId);
+    }
+  }
+
+  function unstake(address contractAddress, uint256[] memory tokenIds) external incrementNonce ifContractExists(contractAddress) nonReentrant {
+    StakedContract storage _contract = contracts[contractAddress];
+
+    for (uint256 i = 0; i < tokenIds.length; i++) {
+      uint256 tokenId = tokenIds[i];
+      require(addressToStakedTokensSet[contractAddress][_msgSender()].contains(tokenId), "token is not staked");
+
+      delete contractTokenIdToOwner[contractAddress][tokenId];
+      _contract.instance.transferFrom(address(this), _msgSender(), tokenId);
+      addressToStakedTokensSet[contractAddress][_msgSender()].remove(tokenId);
+      delete contractTokenIdToStakedTimestamp[contractAddress][tokenId];
+
+      emit Unstake(tokenId, contractAddress, _msgSender());
+    }
+  }
+
+  function stakedTokensOfOwner(address contractAddress, address owner) public view ifContractExists(contractAddress) returns (uint256[] memory) {
+    EnumerableSet.UintSet storage userTokens = addressToStakedTokensSet[contractAddress][owner];
+    uint256[] memory tokenIds = new uint256[](userTokens.length());
+
+    for (uint256 i = 0; i < userTokens.length(); i++) {
+      tokenIds[i] = userTokens.at(i);
+    }
+
+    return tokenIds;
+  }
+
+  function stakedOfOwner(address contractAddress, address owner) public view ifContractExists(contractAddress) returns (uint256[] memory stakedIds, uint256[] memory stakedTimestamps) {
+    EnumerableSet.UintSet storage userTokens = addressToStakedTokensSet[contractAddress][owner];
+    stakedIds = new uint256[](userTokens.length());
+    stakedTimestamps = new uint256[](userTokens.length());
+
+    for (uint256 i = 0; i < userTokens.length(); i++) {
+      uint256 tokenId = userTokens.at(i);
+      stakedIds[i] = tokenId;
+      stakedTimestamps[i] = contractTokenIdToStakedTimestamp[contractAddress][tokenId];
+    }
+
+    return (stakedIds, stakedTimestamps);
+  }
+
+  function stakedTokenTimestamp(address contractAddress, uint256 tokenId) public view ifContractExists(contractAddress) returns (uint256) {
+    return contractTokenIdToStakedTimestamp[contractAddress][tokenId];
+  }
+
+  function addContract(address contractAddress) public onlyOwner {
+    contracts[contractAddress].active = true;
+    contracts[contractAddress].instance = IERC721(contractAddress);
+    activeContracts.add(contractAddress);
+  }
+
+  function updateContract(address contractAddress, bool active) public onlyOwner ifContractExists(contractAddress) {
+    require(activeContracts.contains(contractAddress), "contract not added");
+    contracts[contractAddress].active = active;
+  }
+
+  function accountNonce(address accountAddress) public view returns (uint256) {
+    return addressToNonce[accountAddress].current();
   }
 }
