@@ -30,7 +30,7 @@ contract Land is ERC721A, Ownable, ReentrancyGuard {
   event Burned(uint256 indexed id);
   event SaleActive(bool active);
   event Stake(uint256 tokenId, address contractAddress, address owner, uint256 indexed landTokenId);
-  event Unstake(uint256 tokenId, address contractAddress, address owner);
+  event Unstake(uint256 tokenId, address contractAddress, address owner, uint256 indexed landTokenId);
 
   constructor(string memory uri) ERC721A("Y2123.Land", "Y2123.Land") {
     baseURI = uri;
@@ -100,7 +100,9 @@ contract Land is ERC721A, Ownable, ReentrancyGuard {
   mapping(address => mapping(uint256 => address)) contractTokenIdToOwner;
   mapping(address => mapping(uint256 => uint256)) contractTokenIdToStakedTimestamp;
   mapping(address => StakedContract) public contracts;
-  mapping(address => Counters.Counter) addressToNonce;
+
+  mapping(address => mapping(uint256 => EnumerableSet.UintSet)) landToStakedTokensSet;
+  mapping(address => mapping(address => EnumerableSet.UintSet)) addressToLandTokensSet;
 
   EnumerableSet.AddressSet activeContracts;
 
@@ -109,16 +111,11 @@ contract Land is ERC721A, Ownable, ReentrancyGuard {
     _;
   }
 
-  modifier incrementNonce() {
-    addressToNonce[_msgSender()].increment();
-    _;
-  }
-
   function stake(
     address contractAddress,
     uint256[] memory tokenIds,
     uint256 landTokenId
-  ) external incrementNonce nonReentrant {
+  ) external nonReentrant {
     StakedContract storage _contract = contracts[contractAddress];
     require(_contract.active, "token contract is not active");
 
@@ -127,13 +124,22 @@ contract Land is ERC721A, Ownable, ReentrancyGuard {
       contractTokenIdToOwner[contractAddress][tokenId] = _msgSender();
       _contract.instance.transferFrom(_msgSender(), address(this), tokenId);
       addressToStakedTokensSet[contractAddress][_msgSender()].add(tokenId);
+      landToStakedTokensSet[contractAddress][landTokenId].add(tokenId);
       contractTokenIdToStakedTimestamp[contractAddress][tokenId] = block.timestamp;
 
       emit Stake(tokenId, contractAddress, _msgSender(), landTokenId);
     }
+
+    if (!addressToLandTokensSet[contractAddress][_msgSender()].contains(landTokenId)) {
+      addressToLandTokensSet[contractAddress][_msgSender()].add(landTokenId);
+    }
   }
 
-  function unstake(address contractAddress, uint256[] memory tokenIds) external incrementNonce ifContractExists(contractAddress) nonReentrant {
+  function unstake(
+    address contractAddress,
+    uint256[] memory tokenIds,
+    uint256 landTokenId
+  ) external ifContractExists(contractAddress) nonReentrant {
     StakedContract storage _contract = contracts[contractAddress];
 
     for (uint256 i = 0; i < tokenIds.length; i++) {
@@ -143,35 +149,80 @@ contract Land is ERC721A, Ownable, ReentrancyGuard {
       delete contractTokenIdToOwner[contractAddress][tokenId];
       _contract.instance.transferFrom(address(this), _msgSender(), tokenId);
       addressToStakedTokensSet[contractAddress][_msgSender()].remove(tokenId);
+      landToStakedTokensSet[contractAddress][landTokenId].remove(tokenId);
       delete contractTokenIdToStakedTimestamp[contractAddress][tokenId];
 
-      emit Unstake(tokenId, contractAddress, _msgSender());
+      emit Unstake(tokenId, contractAddress, _msgSender(), landTokenId);
     }
-  }
 
-  function stakedTokensOfOwner(address contractAddress, address owner) public view ifContractExists(contractAddress) returns (uint256[] memory) {
-    EnumerableSet.UintSet storage userTokens = addressToStakedTokensSet[contractAddress][owner];
-    uint256[] memory tokenIds = new uint256[](userTokens.length());
-
+    EnumerableSet.UintSet storage userTokens = addressToStakedTokensSet[contractAddress][_msgSender()];
+    bool allRemovedFromLand = true;
     for (uint256 i = 0; i < userTokens.length(); i++) {
-      tokenIds[i] = userTokens.at(i);
+      if (landToStakedTokensSet[contractAddress][landTokenId].contains(userTokens.at(i))) {
+        allRemovedFromLand = false;
+        break;
+      }
     }
-
-    return tokenIds;
+    if (allRemovedFromLand) {
+      addressToLandTokensSet[contractAddress][_msgSender()].remove(landTokenId);
+    }
   }
 
-  function stakedOfOwner(address contractAddress, address owner) public view ifContractExists(contractAddress) returns (uint256[] memory stakedIds, uint256[] memory stakedTimestamps) {
+  function stakedOfOwner(address contractAddress, address owner)
+    public
+    view
+    ifContractExists(contractAddress)
+    returns (
+      uint256[] memory stakedIds,
+      uint256[] memory stakedTimestamps,
+      uint256[] memory landIds
+    )
+  {
     EnumerableSet.UintSet storage userTokens = addressToStakedTokensSet[contractAddress][owner];
     stakedIds = new uint256[](userTokens.length());
     stakedTimestamps = new uint256[](userTokens.length());
+    landIds = new uint256[](userTokens.length());
 
     for (uint256 i = 0; i < userTokens.length(); i++) {
       uint256 tokenId = userTokens.at(i);
       stakedIds[i] = tokenId;
       stakedTimestamps[i] = contractTokenIdToStakedTimestamp[contractAddress][tokenId];
+
+      landIds[i] = 0;
+      EnumerableSet.UintSet storage landTokens = addressToLandTokensSet[contractAddress][owner];
+      for (uint256 j = 0; j < landTokens.length(); j++) {
+        if (landToStakedTokensSet[contractAddress][landTokens.at(j)].contains(tokenId)) {
+          landIds[i] = landTokens.at(j);
+        }
+      }
     }
 
-    return (stakedIds, stakedTimestamps);
+    return (stakedIds, stakedTimestamps, landIds);
+  }
+
+  function stakedOnLand(address contractAddress, uint256 landId)
+    public
+    view
+    ifContractExists(contractAddress)
+    returns (
+      uint256[] memory stakedIds,
+      uint256[] memory stakedTimestamps,
+      address[] memory owners
+    )
+  {
+    EnumerableSet.UintSet storage stakedTokens = landToStakedTokensSet[contractAddress][landId];
+    stakedIds = new uint256[](stakedTokens.length());
+    stakedTimestamps = new uint256[](stakedTokens.length());
+    owners = new address[](stakedTokens.length());
+
+    for (uint256 i = 0; i < stakedTokens.length(); i++) {
+      uint256 tokenId = stakedTokens.at(i);
+      stakedIds[i] = tokenId;
+      stakedTimestamps[i] = contractTokenIdToStakedTimestamp[contractAddress][tokenId];
+      owners[i] = contractTokenIdToOwner[contractAddress][tokenId];
+    }
+
+    return (stakedIds, stakedTimestamps, owners);
   }
 
   function stakedTokenTimestamp(address contractAddress, uint256 tokenId) public view ifContractExists(contractAddress) returns (uint256) {
@@ -187,9 +238,5 @@ contract Land is ERC721A, Ownable, ReentrancyGuard {
   function updateContract(address contractAddress, bool active) public onlyOwner ifContractExists(contractAddress) {
     require(activeContracts.contains(contractAddress), "contract not added");
     contracts[contractAddress].active = active;
-  }
-
-  function accountNonce(address accountAddress) public view returns (uint256) {
-    return addressToNonce[accountAddress].current();
   }
 }
