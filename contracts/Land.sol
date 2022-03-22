@@ -31,6 +31,8 @@ contract Land is ERC721A, Ownable, ReentrancyGuard {
   event SaleActive(bool active);
   event Stake(uint256 tokenId, address contractAddress, address owner, uint256 indexed landTokenId);
   event Unstake(uint256 tokenId, address contractAddress, address owner, uint256 indexed landTokenId);
+  event StakeInternal(uint256 tokenId, address contractAddress, address owner, uint256 indexed landTokenId);
+  event UnstakeInternal(uint256 tokenId, address contractAddress, address owner, uint256 indexed landTokenId);
 
   constructor(string memory uri) ERC721A("Y2123.Land", "Y2123.Land") {
     baseURI = uri;
@@ -95,21 +97,80 @@ contract Land is ERC721A, Ownable, ReentrancyGuard {
     bool active;
     IERC721 instance;
   }
-
-  mapping(address => mapping(address => EnumerableSet.UintSet)) addressToStakedTokensSet;
-  mapping(address => mapping(uint256 => address)) contractTokenIdToOwner;
-  mapping(address => mapping(uint256 => uint256)) contractTokenIdToStakedTimestamp;
   mapping(address => StakedContract) public contracts;
-
-  mapping(address => mapping(uint256 => EnumerableSet.UintSet)) landToStakedTokensSet;
-  mapping(address => mapping(address => EnumerableSet.UintSet)) addressToLandTokensSet;
-
   EnumerableSet.AddressSet activeContracts;
 
   modifier ifContractExists(address contractAddress) {
     require(activeContracts.contains(contractAddress), "contract does not exists");
     _;
   }
+
+  function addContract(address contractAddress) public onlyOwner {
+    contracts[contractAddress].active = true;
+    contracts[contractAddress].instance = IERC721(contractAddress);
+    activeContracts.add(contractAddress);
+  }
+
+  function updateContract(address contractAddress, bool active) public onlyOwner ifContractExists(contractAddress) {
+    require(activeContracts.contains(contractAddress), "contract not added");
+    contracts[contractAddress].active = active;
+  }
+
+  /** STAKE ON LAND - LAND OWNERS */
+
+  mapping(address => mapping(uint256 => EnumerableSet.UintSet)) landToStakedTokensSetInternal;
+  mapping(address => mapping(uint256 => uint256)) contractTokenIdToStakedTimestampInternal;
+
+  function stakeInternal(
+    address contractAddress,
+    uint256[] memory tokenIds,
+    uint256 landTokenId
+  ) external nonReentrant {
+    StakedContract storage _contract = contracts[contractAddress];
+    require(_contract.active, "token contract is not active");
+    //require land owner checking
+
+    for (uint256 i = 0; i < tokenIds.length; i++) {
+      uint256 tokenId = tokenIds[i];
+      _contract.instance.transferFrom(_msgSender(), address(this), tokenId);
+      landToStakedTokensSetInternal[contractAddress][landTokenId].add(tokenId);
+      contractTokenIdToStakedTimestampInternal[contractAddress][tokenId] = block.timestamp;
+
+      emit StakeInternal(tokenId, contractAddress, _msgSender(), landTokenId);
+    }
+  }
+
+  function unstakeInternal(
+    address contractAddress,
+    uint256[] memory tokenIds,
+    uint256 landTokenId
+  ) external ifContractExists(contractAddress) nonReentrant {
+    StakedContract storage _contract = contracts[contractAddress];
+    //require land owner checking
+
+    for (uint256 i = 0; i < tokenIds.length; i++) {
+      uint256 tokenId = tokenIds[i];
+      require(landToStakedTokensSetInternal[contractAddress][landTokenId].contains(tokenId), "token is not staked");
+
+      _contract.instance.transferFrom(address(this), _msgSender(), tokenId);
+      landToStakedTokensSetInternal[contractAddress][landTokenId].remove(tokenId);
+      delete contractTokenIdToStakedTimestampInternal[contractAddress][tokenId];
+
+      emit UnstakeInternal(tokenId, contractAddress, _msgSender(), landTokenId);
+    }
+  }
+
+  function stakedTokenTimestampInternal(address contractAddress, uint256 tokenId) public view ifContractExists(contractAddress) returns (uint256) {
+    return contractTokenIdToStakedTimestampInternal[contractAddress][tokenId];
+  }
+
+  /** STAKE ON LAND - COLONY HELPERS */
+
+  mapping(address => mapping(address => EnumerableSet.UintSet)) addressToStakedTokensSet;
+  mapping(address => mapping(uint256 => address)) contractTokenIdToOwner;
+  mapping(address => mapping(uint256 => uint256)) contractTokenIdToStakedTimestamp;
+  mapping(address => mapping(uint256 => EnumerableSet.UintSet)) landToStakedTokensSet;
+  mapping(address => mapping(address => EnumerableSet.UintSet)) addressToLandTokensSet;
 
   function stake(
     address contractAddress,
@@ -168,7 +229,7 @@ contract Land is ERC721A, Ownable, ReentrancyGuard {
     }
   }
 
-  function stakedOfOwner(address contractAddress, address owner)
+  function stakedByOwner(address contractAddress, address owner)
     public
     view
     ifContractExists(contractAddress)
@@ -200,7 +261,7 @@ contract Land is ERC721A, Ownable, ReentrancyGuard {
     return (stakedIds, stakedTimestamps, landIds);
   }
 
-  function stakedOnLand(address contractAddress, uint256 landId)
+  function stakedByLand(address contractAddress, uint256 landId)
     public
     view
     ifContractExists(contractAddress)
@@ -227,16 +288,5 @@ contract Land is ERC721A, Ownable, ReentrancyGuard {
 
   function stakedTokenTimestamp(address contractAddress, uint256 tokenId) public view ifContractExists(contractAddress) returns (uint256) {
     return contractTokenIdToStakedTimestamp[contractAddress][tokenId];
-  }
-
-  function addContract(address contractAddress) public onlyOwner {
-    contracts[contractAddress].active = true;
-    contracts[contractAddress].instance = IERC721(contractAddress);
-    activeContracts.add(contractAddress);
-  }
-
-  function updateContract(address contractAddress, bool active) public onlyOwner ifContractExists(contractAddress) {
-    require(activeContracts.contains(contractAddress), "contract not added");
-    contracts[contractAddress].active = active;
   }
 }
