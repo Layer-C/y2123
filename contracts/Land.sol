@@ -62,7 +62,7 @@ contract Land is ERC721A, Ownable, ReentrancyGuard {
     emit SaleActive(saleEnabled);
   }
 
-  function getTokenIDs(address addr) external view returns (uint256[] memory) {
+  function getTokenIDs(address addr) public view returns (uint256[] memory) {
     uint256 total = totalSupply();
     uint256 count = balanceOf(addr);
     uint256[] memory tokens = new uint256[](count);
@@ -160,8 +160,40 @@ contract Land is ERC721A, Ownable, ReentrancyGuard {
     }
   }
 
-  function stakedTokenTimestampInternal(address contractAddress, uint256 tokenId) public view ifContractExists(contractAddress) returns (uint256) {
-    return contractTokenIdToStakedTimestampInternal[contractAddress][tokenId];
+  function stakedByOwnerInternal(address contractAddress, address owner)
+    public
+    view
+    ifContractExists(contractAddress)
+    returns (
+      uint256[] memory stakedIds,
+      uint256[] memory stakedTimestamps,
+      uint256[] memory landIds
+    )
+  {
+    uint256[] memory landTokens = getTokenIDs(owner);
+    uint256 totalStakedTokens;
+    for (uint256 i = 0; i < landTokens.length; i++) {
+      EnumerableSet.UintSet storage userTokens = landToStakedTokensSetInternal[contractAddress][landTokens[i]];
+      totalStakedTokens += userTokens.length();
+    }
+
+    if (totalStakedTokens > 0) {
+      stakedIds = new uint256[](totalStakedTokens);
+      stakedTimestamps = new uint256[](totalStakedTokens);
+      landIds = new uint256[](totalStakedTokens);
+
+      for (uint256 i = 0; i < landTokens.length; i++) {
+        EnumerableSet.UintSet storage userTokens = landToStakedTokensSetInternal[contractAddress][landTokens[i]];
+        totalStakedTokens += userTokens.length();
+        for (uint256 j = 0; j < userTokens.length(); j++) {
+          landIds[j] = landTokens[i];
+          stakedIds[j] = userTokens.at(j);
+          stakedTimestamps[j] = contractTokenIdToStakedTimestampInternal[contractAddress][userTokens.at(j)];
+        }
+      }
+    }
+
+    return (stakedIds, stakedTimestamps, landIds);
   }
 
   /** STAKE ON LAND - COLONY HELPERS */
@@ -249,7 +281,6 @@ contract Land is ERC721A, Ownable, ReentrancyGuard {
       stakedIds[i] = tokenId;
       stakedTimestamps[i] = contractTokenIdToStakedTimestamp[contractAddress][tokenId];
 
-      landIds[i] = 0;
       EnumerableSet.UintSet storage landTokens = addressToLandTokensSet[contractAddress][owner];
       for (uint256 j = 0; j < landTokens.length(); j++) {
         if (landToStakedTokensSet[contractAddress][landTokens.at(j)].contains(tokenId)) {
@@ -286,7 +317,25 @@ contract Land is ERC721A, Ownable, ReentrancyGuard {
     return (stakedIds, stakedTimestamps, owners);
   }
 
-  function stakedTokenTimestamp(address contractAddress, uint256 tokenId) public view ifContractExists(contractAddress) returns (uint256) {
-    return contractTokenIdToStakedTimestamp[contractAddress][tokenId];
+  function stakedByToken(address contractAddress, uint256 tokenId)
+    public
+    view
+    ifContractExists(contractAddress)
+    returns (
+      address,
+      uint256,
+      uint256
+    )
+  {
+    address owner = contractTokenIdToOwner[contractAddress][tokenId];
+    uint256 landId;
+    EnumerableSet.UintSet storage landTokens = addressToLandTokensSet[contractAddress][owner];
+    for (uint256 i = 0; i < landTokens.length(); i++) {
+      if (landToStakedTokensSet[contractAddress][landTokens.at(i)].contains(tokenId)) {
+        landId = landTokens.at(i);
+        break;
+      }
+    }
+    return (owner, landId, contractTokenIdToStakedTimestamp[contractAddress][tokenId]);
   }
 }
