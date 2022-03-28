@@ -182,18 +182,67 @@ contract Land is ERC721A, Ownable, ReentrancyGuard {
       stakedTimestamps = new uint256[](totalStakedTokens);
       landIds = new uint256[](totalStakedTokens);
 
+      uint256 index;
       for (uint256 i = 0; i < landTokens.length; i++) {
         EnumerableSet.UintSet storage userTokens = landToStakedTokensSetInternal[contractAddress][landTokens[i]];
-        totalStakedTokens += userTokens.length();
         for (uint256 j = 0; j < userTokens.length(); j++) {
-          landIds[j] = landTokens[i];
-          stakedIds[j] = userTokens.at(j);
-          stakedTimestamps[j] = contractTokenIdToStakedTimestampInternal[contractAddress][userTokens.at(j)];
+          landIds[index] = landTokens[i];
+          stakedIds[index] = userTokens.at(j);
+          stakedTimestamps[index] = contractTokenIdToStakedTimestampInternal[contractAddress][userTokens.at(j)];
+          index++;
         }
       }
     }
 
     return (stakedIds, stakedTimestamps, landIds);
+  }
+
+  function stakedByLandInternal(address contractAddress, uint256 landId)
+    public
+    view
+    ifContractExists(contractAddress)
+    returns (
+      uint256[] memory stakedIds,
+      uint256[] memory stakedTimestamps,
+      address[] memory owners
+    )
+  {
+    EnumerableSet.UintSet storage stakedTokens = landToStakedTokensSetInternal[contractAddress][landId];
+    stakedIds = new uint256[](stakedTokens.length());
+    stakedTimestamps = new uint256[](stakedTokens.length());
+    owners = new address[](stakedTokens.length());
+
+    for (uint256 i = 0; i < stakedTokens.length(); i++) {
+      uint256 tokenId = stakedTokens.at(i);
+      stakedIds[i] = tokenId;
+      stakedTimestamps[i] = contractTokenIdToStakedTimestampInternal[contractAddress][tokenId];
+      owners[i] = ownerOf(landId);
+    }
+
+    return (stakedIds, stakedTimestamps, owners);
+  }
+
+  function stakedByTokenInternal(address contractAddress, uint256 tokenId)
+    public
+    view
+    ifContractExists(contractAddress)
+    returns (
+      address,
+      uint256,
+      uint256
+    )
+  {
+    uint256 total = totalSupply();
+    uint256 landId;
+    address owner;
+    for (uint256 i; i < total; i++) {
+      if (landToStakedTokensSetInternal[contractAddress][i].contains(tokenId)) {
+        landId = i;
+        owner = ownerOf(i);
+        break;
+      }
+    }
+    return (owner, landId, contractTokenIdToStakedTimestampInternal[contractAddress][tokenId]);
   }
 
   /** STAKE ON LAND - COLONY HELPERS */
