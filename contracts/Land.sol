@@ -128,7 +128,7 @@ contract Land is ERC721A, Ownable, ReentrancyGuard {
   ) external nonReentrant {
     StakedContract storage _contract = contracts[contractAddress];
     require(_contract.active, "token contract is not active");
-    //require land owner checking
+    require(ownerOf(landTokenId) == _msgSender());
 
     for (uint256 i = 0; i < tokenIds.length; i++) {
       uint256 tokenId = tokenIds[i];
@@ -145,9 +145,9 @@ contract Land is ERC721A, Ownable, ReentrancyGuard {
     uint256[] memory tokenIds,
     uint256 landTokenId
   ) external ifContractExists(contractAddress) nonReentrant {
+    require(ownerOf(landTokenId) == _msgSender());
     StakedContract storage _contract = contracts[contractAddress];
-    //require land owner checking
-
+    
     for (uint256 i = 0; i < tokenIds.length; i++) {
       uint256 tokenId = tokenIds[i];
       require(landToStakedTokensSetInternal[contractAddress][landTokenId].contains(tokenId), "token is not staked");
@@ -386,5 +386,33 @@ contract Land is ERC721A, Ownable, ReentrancyGuard {
       }
     }
     return (owner, landId, contractTokenIdToStakedTimestamp[contractAddress][tokenId]);
+  }
+
+  /** OXGN TANK */
+
+  mapping(address => uint8) _addressToTankLevel;
+  uint256[] public tankPrices = [500 ether, 1000 ether, 2000 ether, 4000 ether, 8000 ether, 16000 ether, 32000 ether, 64000 ether, 128000 ether];
+
+  function upgradeTank() external nonReentrant {
+    require(tankLevelOfOwner(_msgSender()) < tankPrices.length + 1, "tank is at max level");
+    oxgnToken.burn(_msgSender(), nextLevelTankPrice(_msgSender()));
+    _addressToTankLevel[_msgSender()]++;
+  }
+
+  function upgradeTank(address receiver) external onlyOwner {
+    require(tankLevelOfOwner(receiver) < tankPrices.length + 1, "tank is at max level");
+    _addressToTankLevel[receiver]++;
+  }
+
+  function nextLevelTankPrice(address owner) public view returns (uint256) {
+    return tankPrices[_addressToTankLevel[owner]];
+  }
+
+  function tankLevelOfOwner(address owner) public view returns (uint256) {
+    return _addressToTankLevel[owner] + 1;
+  }
+
+  function setTankPrices(uint256[] memory newPrices) external onlyOwner {
+    tankPrices = newPrices;
   }
 }
