@@ -18,12 +18,10 @@ import "./ILand.sol";
 import "./IOxygen.sol";
 
 contract Land is ERC721A, Ownable, ReentrancyGuard {
-  address public y2123Nft;
   IOxygen public oxgnToken;
-
   uint256 public MAX_SUPPLY = 500;
   string private baseURI;
-  uint256 public mintPrice = 0.063 ether;
+  uint256 public mintPrice = 500 ether;
   bool public saleEnabled = true;
 
   event Minted(address indexed addr, uint256 indexed id, bool recipientOrigin);
@@ -44,6 +42,10 @@ contract Land is ERC721A, Ownable, ReentrancyGuard {
 
   function setBaseURI(string memory newBaseURI) external onlyOwner {
     baseURI = newBaseURI;
+  }
+
+  function setOxgnContract(address _oxgnToken) public onlyOwner {
+    oxgnToken = IOxygen(_oxgnToken);
   }
 
   function setMaxSupply(uint256 newMaxSupply) external onlyOwner {
@@ -76,15 +78,24 @@ contract Land is ERC721A, Ownable, ReentrancyGuard {
     return tokens;
   }
 
-  function paidMint(uint256 amount) public payable nonReentrant {
+  function paidMint(uint256 amount) public nonReentrant {
     uint256 totalMinted = totalSupply();
 
     require(msg.sender == tx.origin);
     require(saleEnabled, "Sale not enabled");
-    require(amount * mintPrice <= msg.value, "More ETH please");
     require(amount + totalMinted <= MAX_SUPPLY, "Please try minting with less, not enough supply!");
 
+    oxgnToken.burn(_msgSender(), amount * mintPrice);
+
     _safeMint(msg.sender, amount);
+  }
+
+  function safeTransferFrom(
+    address from,
+    address to,
+    uint256 tokenId
+  ) public virtual override {
+    safeTransferFrom(from, to, tokenId, "");
   }
 
   /** STAKING */
@@ -147,7 +158,7 @@ contract Land is ERC721A, Ownable, ReentrancyGuard {
   ) external ifContractExists(contractAddress) nonReentrant {
     require(ownerOf(landTokenId) == _msgSender());
     StakedContract storage _contract = contracts[contractAddress];
-    
+
     for (uint256 i = 0; i < tokenIds.length; i++) {
       uint256 tokenId = tokenIds[i];
       require(landToStakedTokensSetInternal[contractAddress][landTokenId].contains(tokenId), "token is not staked");

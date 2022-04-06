@@ -22,9 +22,9 @@ describe("Land Contract", function () {
     await landContract.setMaxSupply(10000);
     expect(await landContract.MAX_SUPPLY()).to.equal(10000);
 
-    expect(await landContract.mintPrice()).to.equal(BigInt(63000000000000000));
-    await landContract.setMintPrice(BigInt(61000000000000000));
-    expect(await landContract.mintPrice()).to.equal(BigInt(61000000000000000));
+    expect(await landContract.mintPrice()).to.equal(BigInt(500000000000000000000));
+    await landContract.setMintPrice(BigInt(600000000000000000000));
+    expect(await landContract.mintPrice()).to.equal(BigInt(600000000000000000000));
 
     expect(await landContract.toggleSale())
       .to.emit(landContract, "SaleActive")
