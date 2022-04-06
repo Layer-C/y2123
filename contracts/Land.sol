@@ -32,8 +32,9 @@ contract Land is ERC721A, Ownable, ReentrancyGuard {
   event StakeInternal(uint256 tokenId, address contractAddress, address owner, uint256 indexed landTokenId);
   event UnstakeInternal(uint256 tokenId, address contractAddress, address owner, uint256 indexed landTokenId);
 
-  constructor(string memory uri) ERC721A("Y2123.Land", "Y2123.Land") {
+  constructor(string memory uri, address _oxgnToken) ERC721A("Y2123.Land", "Y2123.Land") {
     baseURI = uri;
+    setOxgnContract(_oxgnToken);
   }
 
   function _baseURI() internal view override returns (string memory) {
@@ -90,12 +91,36 @@ contract Land is ERC721A, Ownable, ReentrancyGuard {
     _safeMint(msg.sender, amount);
   }
 
+  mapping(uint256 => uint256) public tokenToTransferTimestamp1;
+  mapping(uint256 => uint256) public tokenToTransferTimestamp2;
+  mapping(uint256 => uint256) public tokenToTransferTimestamp3;
+
   function safeTransferFrom(
     address from,
     address to,
     uint256 tokenId
   ) public virtual override {
-    safeTransferFrom(from, to, tokenId, "");
+    tokenToTransferTimestamp1[tokenId] = block.timestamp;
+    ERC721A.safeTransferFrom(from, to, tokenId, "");
+  }
+
+  function safeTransferFrom(
+    address from,
+    address to,
+    uint256 tokenId,
+    bytes memory _data
+  ) public virtual override {
+    tokenToTransferTimestamp2[tokenId] = block.timestamp;
+    ERC721A.safeTransferFrom(from, to, tokenId, _data);
+  }
+
+  function transferFrom(
+    address from,
+    address to,
+    uint256 tokenId
+  ) public virtual override {
+    tokenToTransferTimestamp3[tokenId] = block.timestamp;
+    ERC721A.transferFrom(from, to, tokenId);
   }
 
   /** STAKING */
