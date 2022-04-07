@@ -13,11 +13,14 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 import "@openzeppelin/contracts/utils/Counters.sol";
+import "@openzeppelin/contracts/utils/Address.sol";
 import "erc721a/contracts/ERC721A.sol";
 import "./ILand.sol";
 import "./IOxygen.sol";
 
 contract Land is ERC721A, Ownable, ReentrancyGuard {
+  using Address for address;
+
   IOxygen public oxgnToken;
   uint256 public MAX_SUPPLY = 500;
   string private baseURI;
@@ -91,16 +94,49 @@ contract Land is ERC721A, Ownable, ReentrancyGuard {
     _safeMint(msg.sender, amount);
   }
 
-  mapping(uint256 => uint256) public tokenToTransferTimestamp1;
-  mapping(uint256 => uint256) public tokenToTransferTimestamp2;
-  mapping(uint256 => uint256) public tokenToTransferTimestamp3;
+  mapping(address => bool) public admins;
+
+  function addAdmin(address addr) external onlyOwner {
+    require(addr != address(0), "empty address");
+    admins[addr] = true;
+  }
+
+  function removeAdmin(address addr) external onlyOwner {
+    require(addr != address(0), "empty address");
+    admins[addr] = false;
+  }
+
+  mapping(uint256 => uint256[]) public tokenToTransferTimestamp;
+  mapping(uint256 => mapping(address => bool)) public tokenToBlacklist;
+
+  function transferFrom(
+    address from,
+    address to,
+    uint256 tokenId
+  ) public virtual override {
+    // OS invoked if (_msgSender() is a contract) and (tx.origin is address to)
+    if (_msgSender().isContract() && tx.origin == to) {
+      if (!tokenToBlacklist[tokenId][from]) {
+        tokenToBlacklist[tokenId][from] = true;
+      }
+
+      if (!tokenToBlacklist[tokenId][to]) {
+        tokenToTransferTimestamp[tokenId].push(block.timestamp);
+      }
+    }
+
+    ERC721A.transferFrom(from, to, tokenId);
+  }
+
+  function transferTimestamps(uint256 tokenId) public view returns (uint256[] memory) {
+    return tokenToTransferTimestamp[tokenId];
+  }
 
   function safeTransferFrom(
     address from,
     address to,
     uint256 tokenId
   ) public virtual override {
-    tokenToTransferTimestamp1[tokenId] = block.timestamp;
     ERC721A.safeTransferFrom(from, to, tokenId, "");
   }
 
@@ -110,17 +146,7 @@ contract Land is ERC721A, Ownable, ReentrancyGuard {
     uint256 tokenId,
     bytes memory _data
   ) public virtual override {
-    tokenToTransferTimestamp2[tokenId] = block.timestamp;
     ERC721A.safeTransferFrom(from, to, tokenId, _data);
-  }
-
-  function transferFrom(
-    address from,
-    address to,
-    uint256 tokenId
-  ) public virtual override {
-    tokenToTransferTimestamp3[tokenId] = block.timestamp;
-    ERC721A.transferFrom(from, to, tokenId);
   }
 
   /** STAKING */
