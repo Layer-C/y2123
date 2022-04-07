@@ -18,6 +18,12 @@ import "erc721a/contracts/ERC721A.sol";
 import "./ILand.sol";
 import "./IOxygen.sol";
 
+contract OwnableDelegateProxy {}
+
+contract ProxyRegistry {
+  mapping(address => OwnableDelegateProxy) public proxies;
+}
+
 contract Land is ERC721A, Ownable, ReentrancyGuard {
   using Address for address;
 
@@ -35,9 +41,10 @@ contract Land is ERC721A, Ownable, ReentrancyGuard {
   event StakeInternal(uint256 tokenId, address contractAddress, address owner, uint256 indexed landTokenId);
   event UnstakeInternal(uint256 tokenId, address contractAddress, address owner, uint256 indexed landTokenId);
 
-  constructor(string memory uri, address _oxgnToken) ERC721A("Y2123.Land", "Y2123.Land") {
+  constructor(string memory uri, address _oxgnToken, address _proxyRegistryAddress) ERC721A("Y2123.Land", "Y2123.Land") {
     baseURI = uri;
     setOxgnContract(_oxgnToken);
+    setProxyRegistry(_proxyRegistryAddress);
   }
 
   function _baseURI() internal view override returns (string memory) {
@@ -50,6 +57,10 @@ contract Land is ERC721A, Ownable, ReentrancyGuard {
 
   function setOxgnContract(address _oxgnToken) public onlyOwner {
     oxgnToken = IOxygen(_oxgnToken);
+  }
+
+  function setProxyRegistry(address _proxyRegistryAddress) public onlyOwner {
+    proxyRegistryAddress = _proxyRegistryAddress;
   }
 
   function setMaxSupply(uint256 newMaxSupply) external onlyOwner {
@@ -94,16 +105,17 @@ contract Land is ERC721A, Ownable, ReentrancyGuard {
     _safeMint(msg.sender, amount);
   }
 
-  mapping(address => bool) public admins;
+  /** OPENSEA */
+  address proxyRegistryAddress;
 
-  function addAdmin(address addr) external onlyOwner {
-    require(addr != address(0), "empty address");
-    admins[addr] = true;
-  }
+  function isApprovedForAll(address owner, address operator) public view override returns (bool) {
+    // Whitelist OpenSea proxy contract for easy trading.
+    ProxyRegistry proxyRegistry = ProxyRegistry(proxyRegistryAddress);
+    if (address(proxyRegistry.proxies(owner)) == operator) {
+      return true;
+    }
 
-  function removeAdmin(address addr) external onlyOwner {
-    require(addr != address(0), "empty address");
-    admins[addr] = false;
+    return super.isApprovedForAll(owner, operator);
   }
 
   mapping(uint256 => uint256[]) public tokenToTransferTimestamp;
