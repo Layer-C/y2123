@@ -32,6 +32,7 @@ contract Land is ERC721A, Ownable, ReentrancyGuard {
   string private baseURI;
   uint256 public mintPrice = 500 ether;
   bool public saleEnabled = true;
+  bool public openseaProxyEnabled = true;
 
   event Minted(address indexed addr, uint256 indexed id, bool recipientOrigin);
   event Burned(uint256 indexed id);
@@ -41,7 +42,11 @@ contract Land is ERC721A, Ownable, ReentrancyGuard {
   event StakeInternal(uint256 tokenId, address contractAddress, address owner, uint256 indexed landTokenId);
   event UnstakeInternal(uint256 tokenId, address contractAddress, address owner, uint256 indexed landTokenId);
 
-  constructor(string memory uri, address _oxgnToken, address _proxyRegistryAddress) ERC721A("Y2123.Land", "Y2123.Land") {
+  constructor(
+    string memory uri,
+    address _oxgnToken,
+    address _proxyRegistryAddress
+  ) ERC721A("Y2123.Land", "Y2123.Land") {
     baseURI = uri;
     setOxgnContract(_oxgnToken);
     setProxyRegistry(_proxyRegistryAddress);
@@ -79,6 +84,10 @@ contract Land is ERC721A, Ownable, ReentrancyGuard {
     emit SaleActive(saleEnabled);
   }
 
+  function toggleOpenseaProxy() external onlyOwner {
+    openseaProxyEnabled = !openseaProxyEnabled;
+  }
+
   function getTokenIDs(address addr) public view returns (uint256[] memory) {
     uint256 total = totalSupply();
     uint256 count = balanceOf(addr);
@@ -106,28 +115,45 @@ contract Land is ERC721A, Ownable, ReentrancyGuard {
   }
 
   /** OPENSEA */
-  address proxyRegistryAddress;
+  address public proxyRegistryAddress;
 
   function isApprovedForAll(address owner, address operator) public view override returns (bool) {
-    // Whitelist OpenSea proxy contract for easy trading.
-    ProxyRegistry proxyRegistry = ProxyRegistry(proxyRegistryAddress);
-    if (address(proxyRegistry.proxies(owner)) == operator) {
+    if (isValidOpenseaProxy(owner, operator)) {
       return true;
     }
 
     return super.isApprovedForAll(owner, operator);
   }
 
+  function isValidOpenseaProxy(address owner, address operator) public view returns (bool) {
+    ProxyRegistry proxyRegistry = ProxyRegistry(proxyRegistryAddress);
+    if (address(proxyRegistry.proxies(owner)) == operator) {
+      return true;
+    }
+    return false;
+  }
+
   mapping(uint256 => uint256[]) public tokenToTransferTimestamp;
   mapping(uint256 => mapping(address => bool)) public tokenToBlacklist;
 
-  function transferFrom(
+  function transferTimestamps(uint256 tokenId) public view returns (uint256[] memory) {
+    return tokenToTransferTimestamp[tokenId];
+  }
+
+  function updateLandLogic(
     address from,
     address to,
     uint256 tokenId
-  ) public virtual override {
-    // OS invoked if (_msgSender() is a contract) and (tx.origin is address to)
-    if (_msgSender().isContract() && tx.origin == to) {
+  ) private {
+    bool updateLand;
+    if (openseaProxyEnabled) {
+      updateLand = isValidOpenseaProxy(from, _msgSender());
+    } else {
+      // Marketplace invoked if (_msgSender() is a contract) and (tx.origin is address to)
+      updateLand = (_msgSender().isContract() && tx.origin == to);
+    }
+
+    if (updateLand) {
       if (!tokenToBlacklist[tokenId][from]) {
         tokenToBlacklist[tokenId][from] = true;
       }
@@ -136,12 +162,15 @@ contract Land is ERC721A, Ownable, ReentrancyGuard {
         tokenToTransferTimestamp[tokenId].push(block.timestamp);
       }
     }
-
-    ERC721A.transferFrom(from, to, tokenId);
   }
 
-  function transferTimestamps(uint256 tokenId) public view returns (uint256[] memory) {
-    return tokenToTransferTimestamp[tokenId];
+  function transferFrom(
+    address from,
+    address to,
+    uint256 tokenId
+  ) public virtual override {
+    updateLandLogic(from, to, tokenId);
+    ERC721A.transferFrom(from, to, tokenId);
   }
 
   function safeTransferFrom(
@@ -149,6 +178,7 @@ contract Land is ERC721A, Ownable, ReentrancyGuard {
     address to,
     uint256 tokenId
   ) public virtual override {
+    updateLandLogic(from, to, tokenId);
     ERC721A.safeTransferFrom(from, to, tokenId, "");
   }
 
@@ -158,6 +188,7 @@ contract Land is ERC721A, Ownable, ReentrancyGuard {
     uint256 tokenId,
     bytes memory _data
   ) public virtual override {
+    updateLandLogic(from, to, tokenId);
     ERC721A.safeTransferFrom(from, to, tokenId, _data);
   }
 
