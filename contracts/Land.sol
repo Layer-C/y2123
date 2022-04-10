@@ -134,10 +134,15 @@ contract Land is ERC721A, Ownable, ReentrancyGuard {
   }
 
   mapping(uint256 => uint256[]) public tokenToTransferTimestamp;
+  mapping(uint256 => uint256[]) public tokenToResetTimestamp;
   mapping(uint256 => mapping(address => bool)) public tokenToBlacklist;
 
   function transferTimestamps(uint256 tokenId) public view returns (uint256[] memory) {
     return tokenToTransferTimestamp[tokenId];
+  }
+
+  function resetTimestamps(uint256 tokenId) public view returns (uint256[] memory) {
+    return tokenToResetTimestamp[tokenId];
   }
 
   function updateLandLogic(
@@ -145,7 +150,10 @@ contract Land is ERC721A, Ownable, ReentrancyGuard {
     address to,
     uint256 tokenId
   ) private {
-    bool updateLand;
+    // Track all transfers to reset staked NFT's timestamps on new owner
+    tokenToTransferTimestamp[tokenId].push(block.timestamp);
+
+    bool updateLand = false;
     if (openseaProxyEnabled) {
       updateLand = isValidOpenseaProxy(from, _msgSender());
     } else {
@@ -159,7 +167,7 @@ contract Land is ERC721A, Ownable, ReentrancyGuard {
       }
 
       if (!tokenToBlacklist[tokenId][to]) {
-        tokenToTransferTimestamp[tokenId].push(block.timestamp);
+        tokenToResetTimestamp[tokenId].push(block.timestamp);
       }
     }
   }
