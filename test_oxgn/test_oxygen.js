@@ -2,25 +2,9 @@ const { expect } = require('chai');
 
 describe("Oxygen functions", function () {
     beforeEach(async () => {
-        contract = await ethers.getContractFactory("Y2123");
-        const uri = "https://api.y2123.io/asset?id=";
-        yContract = await contract.deploy(uri);
-        await yContract.deployed();
-
-        y2Contract = await contract.deploy(uri);
-        await y2Contract.deployed();
-
         contract = await ethers.getContractFactory("Oxygen");
         oContract = await contract.deploy();
         await oContract.deployed();
-
-         contract = await ethers.getContractFactory("Clans");
-         const clan_uri = "https://api.y2123.io/clan-asset?id=";
-         cContract = await contract.deploy(clan_uri, oContract.address, yContract.address);
-         await cContract.deployed();
-        cContract.addContract(y2Contract.address);
-        
-        await oContract.addAdmin(cContract.address);
 
         accounts = await ethers.getSigners();
         await oContract.addAdmin(accounts[0].address);
