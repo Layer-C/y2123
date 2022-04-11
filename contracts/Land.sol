@@ -32,6 +32,7 @@ contract Land is ERC721A, Ownable, ReentrancyGuard {
   string private baseURI;
   uint256 public mintPrice = 500 ether;
   bool public saleEnabled = true;
+  bool public transferLogicEnabled = false;
   bool public openseaProxyEnabled = true;
 
   event Minted(address indexed addr, uint256 indexed id, bool recipientOrigin);
@@ -86,6 +87,10 @@ contract Land is ERC721A, Ownable, ReentrancyGuard {
 
   function toggleOpenseaProxy() external onlyOwner {
     openseaProxyEnabled = !openseaProxyEnabled;
+  }
+
+  function toggleTransferLogic() external onlyOwner {
+    transferLogicEnabled = !transferLogicEnabled;
   }
 
   function getTokenIDs(address addr) public view returns (uint256[] memory) {
@@ -150,6 +155,10 @@ contract Land is ERC721A, Ownable, ReentrancyGuard {
     address to,
     uint256 tokenId
   ) private {
+    if (!transferLogicEnabled) {
+      return;
+    }
+
     // Track all transfers to reset staked NFT's timestamps on new owner
     tokenToTransferTimestamp[tokenId].push(block.timestamp);
 
@@ -157,7 +166,7 @@ contract Land is ERC721A, Ownable, ReentrancyGuard {
     if (openseaProxyEnabled) {
       updateLand = isValidOpenseaProxy(from, _msgSender());
     } else {
-      // Marketplace invoked if (_msgSender() is a contract) and (tx.origin is address to)
+      // Fallback - generic marketplace invoke check
       updateLand = (_msgSender().isContract() && tx.origin == to);
     }
 
@@ -358,7 +367,7 @@ contract Land is ERC721A, Ownable, ReentrancyGuard {
     return (owner, landId, contractTokenIdToStakedTimestampInternal[contractAddress][tokenId]);
   }
 
-  /** STAKE ON LAND - COLONY HELPERS */
+  /** STAKE ON LAND - EXTERNAL HELPERS */
 
   mapping(address => mapping(address => EnumerableSet.UintSet)) addressToStakedTokensSet;
   mapping(address => mapping(uint256 => address)) contractTokenIdToOwner;
