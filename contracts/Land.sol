@@ -52,6 +52,7 @@ contract Land is ERC721A, Ownable, ReentrancyGuard {
     setProxyRegistry(_proxyRegistryAddress);
   }
 
+
   function _baseURI() internal view override returns (string memory) {
     return baseURI;
   }
