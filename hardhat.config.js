@@ -24,23 +24,23 @@ module.exports = {
   networks: {
     mainnet: {
       url: `https://eth-mainnet.alchemyapi.io/v2/${ALCHEMY_API_KEY}`,
-      accounts: ['a3db0fa7a2e482a884e7756731d292858328fff941f6c8d6e5c0f280b4da3c74'],
+      accounts: [TEST1_PK],
     },
     rinkeby: {
       url: `https://eth-rinkeby.alchemyapi.io/v2/${ALCHEMY_API_KEY}`,
-      accounts: ['a3db0fa7a2e482a884e7756731d292858328fff941f6c8d6e5c0f280b4da3c74'],
+      accounts: [TEST1_PK],
     },
     goerli: {
       url: `https://eth-goerli.alchemyapi.io/v2/${ALCHEMY_API_KEY}`,
-      accounts: ['a3db0fa7a2e482a884e7756731d292858328fff941f6c8d6e5c0f280b4da3c74'],
+      accounts: [TEST1_PK],
     },
     kovan: {
       url: `https://eth-kovan.alchemyapi.io/v2/${ALCHEMY_API_KEY}`,
-      accounts: ['a3db0fa7a2e482a884e7756731d292858328fff941f6c8d6e5c0f280b4da3c74'],
+      accounts: [TEST1_PK],
     },
     ropsten: {
       url: `https://eth-ropsten.alchemyapi.io/v2/${ALCHEMY_API_KEY}`,
-      accounts: ['a3db0fa7a2e482a884e7756731d292858328fff941f6c8d6e5c0f280b4da3c74'],
+      accounts: [TEST1_PK],
     },
   },
   paths: {
