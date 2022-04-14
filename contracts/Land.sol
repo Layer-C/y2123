@@ -24,9 +24,23 @@ contract ProxyRegistry {
   mapping(address => OwnableDelegateProxy) public proxies;
 }
 
+contract Clans {
+  struct ClanStruct {
+    uint256 clanId;
+    uint256 updateClanTimestamp;
+    bool isEntity;
+  }
+
+  mapping(address => ClanStruct) public clanStructs;
+
+  function burn(uint256 id, uint256 amount) external {}
+}
+
 contract Land is ERC721A, Ownable, ReentrancyGuard {
   using Address for address;
 
+  address public clansAddress;
+  address public proxyRegistryAddress;
   IOxygen public oxgnToken;
   uint256 public MAX_SUPPLY = 500;
   string private baseURI;
@@ -34,6 +48,7 @@ contract Land is ERC721A, Ownable, ReentrancyGuard {
   bool public saleEnabled = true;
   bool public transferLogicEnabled = false;
   bool public openseaProxyEnabled = true;
+  bool public upgradeSameColonyEnabled = true;
 
   event Minted(address indexed addr, uint256 indexed id, bool recipientOrigin);
   event Burned(uint256 indexed id);
@@ -46,10 +61,12 @@ contract Land is ERC721A, Ownable, ReentrancyGuard {
   constructor(
     string memory uri,
     address _oxgnToken,
+    address _clansAddress,
     address _proxyRegistryAddress
   ) ERC721A("Y2123.Land", "Y2123.Land") {
     baseURI = uri;
     setOxgnContract(_oxgnToken);
+    setClansContract(_clansAddress);
     setProxyRegistry(_proxyRegistryAddress);
   }
 
@@ -63,6 +80,10 @@ contract Land is ERC721A, Ownable, ReentrancyGuard {
 
   function setOxgnContract(address _oxgnToken) public onlyOwner {
     oxgnToken = IOxygen(_oxgnToken);
+  }
+
+  function setClansContract(address _clansAddress) public onlyOwner {
+    clansAddress = _clansAddress;
   }
 
   function setProxyRegistry(address _proxyRegistryAddress) public onlyOwner {
@@ -93,6 +114,10 @@ contract Land is ERC721A, Ownable, ReentrancyGuard {
     transferLogicEnabled = !transferLogicEnabled;
   }
 
+  function toggleUpgradeSameColony() external onlyOwner {
+    upgradeSameColonyEnabled = !upgradeSameColonyEnabled;
+  }
+
   function getTokenIDs(address addr) public view returns (uint256[] memory) {
     uint256 total = totalSupply();
     uint256 count = balanceOf(addr);
@@ -120,7 +145,6 @@ contract Land is ERC721A, Ownable, ReentrancyGuard {
   }
 
   /** OPENSEA */
-  address public proxyRegistryAddress;
 
   function isApprovedForAll(address owner, address operator) public view override returns (bool) {
     if (isValidOpenseaProxy(owner, operator)) {
@@ -209,6 +233,32 @@ contract Land is ERC721A, Ownable, ReentrancyGuard {
     ERC721A.safeTransferFrom(from, to, tokenId, _data);
   }
 
+  /** Colony Token Upgrades */
+  mapping(uint256 => mapping(uint256 => uint256)) public landToItem;
+
+  function buyUpgrades(
+    uint256 landTokenId,
+    uint256 itemId,
+    uint256 colonyTokens
+  ) external {
+    require(ownerOf(landTokenId) == _msgSender(), "You do not own this land!");
+
+    uint256 itemColonyId = itemId % 3;
+    if (itemColonyId < 1) {
+      itemColonyId = 3;
+    }
+
+    Clans clansContract = Clans(clansAddress);
+    (uint256 ownerColonyId, , ) = clansContract.clanStructs(_msgSender());
+
+    if (upgradeSameColonyEnabled) {
+      require(itemColonyId == ownerColonyId, "This item does not belong to your colony!");
+    }
+
+    clansContract.burn(itemColonyId, colonyTokens);
+    landToItem[landTokenId][itemId] += colonyTokens;
+  }
+
   /** STAKING */
 
   using Counters for Counters.Counter;
@@ -223,7 +273,7 @@ contract Land is ERC721A, Ownable, ReentrancyGuard {
   EnumerableSet.AddressSet activeContracts;
 
   modifier ifContractExists(address contractAddress) {
-    require(activeContracts.contains(contractAddress), "contract does not exists");
+    require(activeContracts.contains(contractAddress), "Contract does not exists");
     _;
   }
 
@@ -234,7 +284,7 @@ contract Land is ERC721A, Ownable, ReentrancyGuard {
   }
 
   function updateContract(address contractAddress, bool active) public onlyOwner ifContractExists(contractAddress) {
-    require(activeContracts.contains(contractAddress), "contract not added");
+    require(activeContracts.contains(contractAddress), "Contract not added");
     contracts[contractAddress].active = active;
   }
 
@@ -249,8 +299,8 @@ contract Land is ERC721A, Ownable, ReentrancyGuard {
     uint256 landTokenId
   ) external nonReentrant {
     StakedContract storage _contract = contracts[contractAddress];
-    require(_contract.active, "token contract is not active");
-    require(ownerOf(landTokenId) == _msgSender());
+    require(_contract.active, "Token contract is not active");
+    require(ownerOf(landTokenId) == _msgSender(), "You do not own this land!");
 
     for (uint256 i = 0; i < tokenIds.length; i++) {
       uint256 tokenId = tokenIds[i];
@@ -267,12 +317,12 @@ contract Land is ERC721A, Ownable, ReentrancyGuard {
     uint256[] memory tokenIds,
     uint256 landTokenId
   ) external ifContractExists(contractAddress) nonReentrant {
-    require(ownerOf(landTokenId) == _msgSender());
+    require(ownerOf(landTokenId) == _msgSender(), "You do not own this land!");
     StakedContract storage _contract = contracts[contractAddress];
 
     for (uint256 i = 0; i < tokenIds.length; i++) {
       uint256 tokenId = tokenIds[i];
-      require(landToStakedTokensSetInternal[contractAddress][landTokenId].contains(tokenId), "token is not staked");
+      require(landToStakedTokensSetInternal[contractAddress][landTokenId].contains(tokenId), "Token is not staked");
 
       _contract.instance.transferFrom(address(this), _msgSender(), tokenId);
       landToStakedTokensSetInternal[contractAddress][landTokenId].remove(tokenId);
@@ -381,7 +431,7 @@ contract Land is ERC721A, Ownable, ReentrancyGuard {
     uint256 landTokenId
   ) external nonReentrant {
     StakedContract storage _contract = contracts[contractAddress];
-    require(_contract.active, "token contract is not active");
+    require(_contract.active, "Token contract is not active");
 
     for (uint256 i = 0; i < tokenIds.length; i++) {
       uint256 tokenId = tokenIds[i];
@@ -408,7 +458,7 @@ contract Land is ERC721A, Ownable, ReentrancyGuard {
 
     for (uint256 i = 0; i < tokenIds.length; i++) {
       uint256 tokenId = tokenIds[i];
-      require(addressToStakedTokensSet[contractAddress][_msgSender()].contains(tokenId), "token is not staked");
+      require(addressToStakedTokensSet[contractAddress][_msgSender()].contains(tokenId), "Token is not staked");
 
       delete contractTokenIdToOwner[contractAddress][tokenId];
       _contract.instance.transferFrom(address(this), _msgSender(), tokenId);
@@ -516,13 +566,13 @@ contract Land is ERC721A, Ownable, ReentrancyGuard {
   uint256[] public tankPrices = [500 ether, 1000 ether, 2000 ether, 4000 ether, 8000 ether, 16000 ether, 32000 ether, 64000 ether, 128000 ether];
 
   function upgradeTank() external nonReentrant {
-    require(tankLevelOfOwner(_msgSender()) < tankPrices.length + 1, "tank is at max level");
+    require(tankLevelOfOwner(_msgSender()) < tankPrices.length + 1, "Tank is at max level");
     oxgnToken.burn(_msgSender(), nextLevelTankPrice(_msgSender()));
     _addressToTankLevel[_msgSender()]++;
   }
 
   function upgradeTank(address receiver) external onlyOwner {
-    require(tankLevelOfOwner(receiver) < tankPrices.length + 1, "tank is at max level");
+    require(tankLevelOfOwner(receiver) < tankPrices.length + 1, "Tank is at max level");
     _addressToTankLevel[receiver]++;
   }
 
