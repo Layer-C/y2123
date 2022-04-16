@@ -14,8 +14,16 @@ import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import {MerkleProof} from "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
 import "erc721a/contracts/ERC721A.sol";
 
+contract OwnableDelegateProxy {}
+
+contract ProxyRegistry {
+  mapping(address => OwnableDelegateProxy) public proxies;
+}
+
 contract Y2123 is ERC721A, Ownable, ReentrancyGuard {
   mapping(address => bool) private admins;
+  address public stakingAddress;
+  address public proxyRegistryAddress;
 
   using MerkleProof for bytes32[];
   bytes32 merkleRoot;
@@ -43,8 +51,14 @@ contract Y2123 is ERC721A, Ownable, ReentrancyGuard {
   event PresaleActive(bool active);
   event SaleActive(bool active);
 
-  constructor(string memory uri) ERC721A("Y2123", "Y2123") {
+  constructor(
+    string memory uri,
+    address _stakingAddress,
+    address _proxyRegistryAddress
+  ) ERC721A("Y2123", "Y2123") {
     baseURI = uri;
+    setStakingContract(_stakingAddress);
+    setProxyRegistry(_proxyRegistryAddress);
   }
 
   function setMerkleRoot(bytes32 root) public onlyOwner {
@@ -61,6 +75,14 @@ contract Y2123 is ERC721A, Ownable, ReentrancyGuard {
 
   function setBaseURI(string memory newBaseURI) external onlyOwner {
     baseURI = newBaseURI;
+  }
+
+  function setStakingContract(address _stakingAddress) public onlyOwner {
+    stakingAddress = _stakingAddress;
+  }
+
+  function setProxyRegistry(address _proxyRegistryAddress) public onlyOwner {
+    proxyRegistryAddress = _proxyRegistryAddress;
   }
 
   function setMaxSupply(uint256 newMaxSupply) external onlyOwner {
@@ -192,5 +214,23 @@ contract Y2123 is ERC721A, Ownable, ReentrancyGuard {
 
   function withdrawAll() external onlyOwner {
     require(payable(msg.sender).send(address(this).balance));
+  }
+
+  /** OPENSEA */
+
+  function isApprovedForAll(address owner, address operator) public view override returns (bool) {
+    if (isValidOpenseaProxy(owner, operator) || operator == stakingAddress) {
+      return true;
+    }
+
+    return super.isApprovedForAll(owner, operator);
+  }
+
+  function isValidOpenseaProxy(address owner, address operator) public view returns (bool) {
+    ProxyRegistry proxyRegistry = ProxyRegistry(proxyRegistryAddress);
+    if (address(proxyRegistry.proxies(owner)) == operator) {
+      return true;
+    }
+    return false;
   }
 }

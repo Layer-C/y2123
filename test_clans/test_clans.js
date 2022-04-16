@@ -126,5 +126,7 @@ describe("Clans Contract", function () {
     await oContract.mint(cContract.address, ethers.utils.parseEther("100.0"));
     await cContract.withdrawForDonation(ethers.utils.parseEther("50.0"));
     await expect(cContract.withdrawForDonation(ethers.utils.parseEther("51.0"))).to.be.revertedWith("amount exceeds balance");
+
+    //TODO: missing burn clan token test
   });
 });

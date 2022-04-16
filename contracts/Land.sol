@@ -33,7 +33,13 @@ contract Clans {
 
   mapping(address => ClanStruct) public clanStructs;
 
-  function burn(uint256 id, uint256 amount) external {}
+  function safeTransferFrom(
+    address from,
+    address to,
+    uint256 id,
+    uint256 amount,
+    bytes memory data
+  ) public {}
 }
 
 contract Land is ERC721A, Ownable, ReentrancyGuard {
@@ -255,7 +261,7 @@ contract Land is ERC721A, Ownable, ReentrancyGuard {
       require(itemColonyId == ownerColonyId, "This item does not belong to your colony!");
     }
 
-    clansContract.burn(itemColonyId, colonyTokens);
+    clansContract.safeTransferFrom(_msgSender(), owner(), itemColonyId, colonyTokens, "");
     landToItem[landTokenId][itemId] += colonyTokens;
   }
 
