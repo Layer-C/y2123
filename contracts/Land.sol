@@ -15,7 +15,6 @@ import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 import "@openzeppelin/contracts/utils/Counters.sol";
 import "@openzeppelin/contracts/utils/Address.sol";
 import "erc721a/contracts/ERC721A.sol";
-import "./ILand.sol";
 import "./IOxygen.sol";
 
 contract OwnableDelegateProxy {}
@@ -56,9 +55,6 @@ contract Land is ERC721A, Ownable, ReentrancyGuard {
   bool public openseaProxyEnabled = true;
   bool public upgradeSameColonyEnabled = true;
 
-  event Minted(address indexed addr, uint256 indexed id, bool recipientOrigin);
-  event Burned(uint256 indexed id);
-  event SaleActive(bool active);
   event Stake(uint256 tokenId, address contractAddress, address owner, uint256 indexed landTokenId);
   event Unstake(uint256 tokenId, address contractAddress, address owner, uint256 indexed landTokenId);
   event StakeInternal(uint256 tokenId, address contractAddress, address owner, uint256 indexed landTokenId);
@@ -109,7 +105,6 @@ contract Land is ERC721A, Ownable, ReentrancyGuard {
 
   function toggleSale() external onlyOwner {
     saleEnabled = !saleEnabled;
-    emit SaleActive(saleEnabled);
   }
 
   function toggleOpenseaProxy() external onlyOwner {
@@ -239,13 +234,14 @@ contract Land is ERC721A, Ownable, ReentrancyGuard {
     ERC721A.safeTransferFrom(from, to, tokenId, _data);
   }
 
-  /** Colony Token Upgrades */
+  /** Buy Upgrades */
   mapping(uint256 => mapping(uint256 => uint256)) public landToItem;
+  mapping(uint256 => mapping(uint256 => uint256)) public landToItemColony;
 
   function buyUpgrades(
     uint256 landTokenId,
     uint256 itemId,
-    uint256 colonyTokens
+    uint256 cost
   ) external {
     require(ownerOf(landTokenId) == _msgSender(), "You do not own this land!");
 
@@ -261,8 +257,29 @@ contract Land is ERC721A, Ownable, ReentrancyGuard {
       require(itemColonyId == ownerColonyId, "This item does not belong to your colony!");
     }
 
-    clansContract.safeTransferFrom(_msgSender(), owner(), itemColonyId, colonyTokens, "");
-    landToItem[landTokenId][itemId] += colonyTokens;
+    oxgnToken.burn(_msgSender(), cost);
+    landToItem[landTokenId][itemId] += cost;
+  }
+
+  function buyUpgradesColony(
+    uint256 landTokenId,
+    uint256 itemId,
+    uint256 cost
+  ) external {
+    require(ownerOf(landTokenId) == _msgSender(), "You do not own this land!");
+
+    uint256 itemColonyId = itemId % 3;
+    if (itemColonyId < 1) {
+      itemColonyId = 3;
+    }
+
+    Clans clansContract = Clans(clansAddress);
+    (uint256 ownerColonyId, , ) = clansContract.clanStructs(_msgSender());
+
+    require(itemColonyId == ownerColonyId, "This item does not belong to your colony!");
+
+    clansContract.safeTransferFrom(_msgSender(), owner(), itemColonyId, cost, "");
+    landToItemColony[landTokenId][itemId] += cost;
   }
 
   /** STAKING */
