@@ -35,7 +35,7 @@ contract Y2123 is ERC721A, Ownable, ReentrancyGuard {
 
   string private baseURI;
   uint256 public mintPrice = 0.063 ether;
-  uint256 public maxMintPerTx = 3;
+  uint256 public maxMintPerTx = 10;
   uint256 public maxMintPerAddress = 2;
   bool public presaleEnabled = false;
   bool public saleEnabled = true;

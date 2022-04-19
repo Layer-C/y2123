@@ -1,15 +1,19 @@
 const { expect } = require("chai");
 
 describe("Land Contract", function () {
-  let landContract, oContract, cContract, y1Contract, y2Contract, accounts;
+  let landContract, oContract, cContract, y1Contract, y2Contract, proxyContract, accounts;
   const land_uri = "https://api.y2123.io/land-asset?id=";
-  const cs_uri = "https://api.y2123.io/asset?id=";
+  const cs_uri = "https://api.y2123.io/cs2-asset?id=";
   const clan_uri = "https://api.y2123.io/clan-asset?id=";
-  const proxyRegistryAddress = "0x1E525EEAF261cA41b809884CBDE9DD9E1619573A";
 
   beforeEach(async () => {
+    //Deploy fake ProxyRegistry contract to simulate OpenSea proxy contract
+    let contract = await ethers.getContractFactory("contracts/Land.sol:ProxyRegistry");
+    proxyContract = await contract.deploy();
+    await proxyContract.deployed();
+
     //Deploy the ERC20 Oxygen contract
-    let contract = await ethers.getContractFactory("Oxygen");
+    contract = await ethers.getContractFactory("Oxygen");
     oContract = await contract.deploy();
     await oContract.deployed();
 
@@ -22,17 +26,17 @@ describe("Land Contract", function () {
     cContract = await contract.deploy(clan_uri, oContract.address, accounts[0].address);
     await cContract.deployed();
 
-    //Deploy 2 different CS NFT contract so can be used to test stake into Land
-    contract = await ethers.getContractFactory("Y2123");
-    y1Contract = await contract.deploy(cs_uri, cContract.address, proxyRegistryAddress);
-    await y1Contract.deployed();
-    y2Contract = await contract.deploy(cs_uri, cContract.address, proxyRegistryAddress);
-    await y2Contract.deployed();
-
     //Finally we deploy the land contract
     contract = await ethers.getContractFactory("Land");
-    landContract = await contract.deploy(land_uri, oContract.address, cContract.address, proxyRegistryAddress);
+    landContract = await contract.deploy(land_uri, oContract.address, cContract.address, proxyContract.address);
     await landContract.deployed();
+
+    //Deploy 2 different CS NFT contract so can be used to test stake into Land
+    contract = await ethers.getContractFactory("Y2123");
+    y1Contract = await contract.deploy(cs_uri, landContract.address, proxyContract.address);
+    await y1Contract.deployed();
+    y2Contract = await contract.deploy(cs_uri, landContract.address, proxyContract.address);
+    await y2Contract.deployed();
 
     //So we can stake CS NFT into land
     landContract.addContract(y1Contract.address);
@@ -76,8 +80,14 @@ describe("Land Contract", function () {
     totSupply = await landContract.totalSupply();
     expect(totSupply).to.equal(tokenOwner1.length);
   });
-
+  /*
   it("Staking", async () => {
+    //await yContract.addAdmin(cContract.address);
+    await cContract.addContract(y1Contract.address);
+
+    await y1Contract.setApprovalForAll(cContract.address, true);
+    await cContract.stake(y1Contract.address, [0, 1, 2], 1);
+
     await oContract.mint(landContract.owner(), ethers.utils.parseEther("1000.0"));
     await landContract.paidMint(1);
 
@@ -99,5 +109,64 @@ describe("Land Contract", function () {
     //await landContract.upgradeTank();
     //let tankLevel = await landContract.tankLevelOfOwner(landContract.owner());
     //expect(tankLevel).to.equal(nextLevel);
+  });
+*/
+
+  it("Staking into Land NFT", async () => {
+    //Mint OXGN for 3 test acc so can buy Land NFT
+    await oContract.mint(accounts[0].address, ethers.utils.parseEther("100000.0"));
+    await oContract.mint(accounts[1].address, ethers.utils.parseEther("100000.0"));
+    await oContract.mint(accounts[2].address, ethers.utils.parseEther("100000.0"));
+
+    //Mint 10 Land NFT for 3 test acc
+    await landContract.connect(accounts[0]).paidMint(10);
+    await landContract.connect(accounts[1]).paidMint(10);
+    await landContract.connect(accounts[2]).paidMint(10);
+
+    //Mint 10 CS1 NFT for 3 test acc
+    let nftPrice = await y1Contract.mintPrice();
+    await y1Contract.connect(accounts[0]).paidMint(10, [], { value: ethers.BigNumber.from(nftPrice).mul(10) });
+    await y1Contract.connect(accounts[1]).paidMint(10, [], { value: ethers.BigNumber.from(nftPrice).mul(10) });
+    await y1Contract.connect(accounts[2]).paidMint(10, [], { value: ethers.BigNumber.from(nftPrice).mul(10) });
+
+    //Mint 10 CS2 NFT for 3 test acc
+    nftPrice = await y2Contract.mintPrice();
+    await y2Contract.connect(accounts[0]).paidMint(10, [], { value: ethers.BigNumber.from(nftPrice).mul(10) });
+    await y2Contract.connect(accounts[1]).paidMint(10, [], { value: ethers.BigNumber.from(nftPrice).mul(10) });
+    await y2Contract.connect(accounts[2]).paidMint(10, [], { value: ethers.BigNumber.from(nftPrice).mul(10) });
+
+    /** STAKE ON LAND - LAND OWNERS */
+
+    //Stake one CS1 into Land ID 0
+    await landContract.connect(accounts[0]).stakeInternal(y1Contract.address, [0], 0);
+    //Stake few CS1 into Land ID 0
+    await landContract.connect(accounts[0]).stakeInternal(y1Contract.address, [1, 2, 3], 0);
+
+    //Stake one CS1 into Land ID 10
+    await landContract.connect(accounts[1]).stakeInternal(y1Contract.address, [10], 10);
+    //Stake few CS1 into Land ID 10
+    await landContract.connect(accounts[1]).stakeInternal(y1Contract.address, [11, 12, 13], 10);
+
+    //TEST function stakedByOwnerInternal(address contractAddress, address owner)
+    //TEST function stakedByLandInternal(address contractAddress, uint256 landId)
+    //TEST function stakedByTokenInternal(address contractAddress, uint256 tokenId)
+
+    /** STAKE ON LAND - EXTERNAL HELPERS */
+
+    //Stake one CS1 into Land ID 0
+    await landContract.connect(accounts[0]).stake(y1Contract.address, [4], 0);
+    //Stake few CS1 into Land ID 0
+    await landContract.connect(accounts[0]).stake(y1Contract.address, [5, 6, 7], 0);
+
+    //Stake one CS1 into Land ID 0
+    await landContract.connect(accounts[1]).stake(y1Contract.address, [14], 0);
+    //Stake few CS1 into Land ID 0
+    await landContract.connect(accounts[1]).stake(y1Contract.address, [15, 16, 17], 0);
+
+    //TEST function stakedByOwner(address contractAddress, address owner)
+    //TEST function stakedByLand(address contractAddress, uint256 landId)
+    //TEST function stakedByToken(address contractAddress, uint256 tokenId)
+
+
   });
 });
