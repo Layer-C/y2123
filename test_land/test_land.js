@@ -181,7 +181,7 @@ describe("Land Contract", function () {
       }
       else if (for_owner == accounts[1]) {
         expect(LstakedIds).greaterThan(9)
-        expect(LstakedIds).lessThan(19)
+        expect(LstakedIds).lessThan(20)
       }
 
 
