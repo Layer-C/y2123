@@ -172,6 +172,20 @@ describe("Land Contract", function () {
 
     let [LstakedIds, LstakedTimestamps, owners] = await landContract.stakedByLandInternal(y1Contract.address, 0);
     expect(stakedIds.length).equal(5);
+    for (let i = 0; i < LstakedIds.length; i++) {
+
+      for_owner = owners[i];
+      if (for_owner == accounts[0]) {
+        expect(LstakedIds).lessThan(10);
+      }
+      else if (for_owner == accounts[1]) {
+        expect(LstakedIds).greaterThan(9)
+        expect(LstakedIds).lessThan(19)
+      }
+
+
+    }
+
 
 
     //TEST function stakedByTokenInternal(address contractAddress, uint256 tokenId)
