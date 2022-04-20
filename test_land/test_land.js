@@ -172,6 +172,7 @@ describe("Land Contract", function () {
 
     let [LstakedIds, LstakedTimestamps, owners] = await landContract.stakedByLandInternal(y1Contract.address, 0);
     expect(stakedIds.length).equal(5);
+    expect(parseInt(LstakedTimestamps[0])).greaterThan(0);
     for (let i = 0; i < LstakedIds.length; i++) {
 
       for_owner = owners[i];
