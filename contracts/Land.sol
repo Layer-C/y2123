@@ -31,14 +31,6 @@ contract Clans {
   }
 
   mapping(address => ClanStruct) public clanStructs;
-
-  function safeTransferFrom(
-    address from,
-    address to,
-    uint256 id,
-    uint256 amount,
-    bytes memory data
-  ) public {}
 }
 
 contract Land is ERC721A, Ownable, ReentrancyGuard {
@@ -136,13 +128,12 @@ contract Land is ERC721A, Ownable, ReentrancyGuard {
   function paidMint(uint256 amount) public nonReentrant {
     uint256 totalMinted = totalSupply();
 
-    require(msg.sender == tx.origin);
     require(saleEnabled, "Sale not enabled");
     require(amount + totalMinted <= MAX_SUPPLY, "Please try minting with less, not enough supply!");
 
     oxgnToken.burn(_msgSender(), amount * mintPrice);
 
-    _safeMint(msg.sender, amount);
+    _safeMint(_msgSender(), amount);
   }
 
   /** OPENSEA */
@@ -234,9 +225,9 @@ contract Land is ERC721A, Ownable, ReentrancyGuard {
     ERC721A.safeTransferFrom(from, to, tokenId, _data);
   }
 
-  /** Buy Upgrades */
+  /** BUY UPGRADES */
+
   mapping(uint256 => mapping(uint256 => uint256)) public landToItem;
-  mapping(uint256 => mapping(uint256 => uint256)) public landToItemColony;
 
   function buyUpgrades(
     uint256 landTokenId,
@@ -259,27 +250,6 @@ contract Land is ERC721A, Ownable, ReentrancyGuard {
 
     oxgnToken.burn(_msgSender(), cost);
     landToItem[landTokenId][itemId] += cost;
-  }
-
-  function buyUpgradesColony(
-    uint256 landTokenId,
-    uint256 itemId,
-    uint256 cost
-  ) external {
-    require(ownerOf(landTokenId) == _msgSender(), "You do not own this land!");
-
-    uint256 itemColonyId = itemId % 3;
-    if (itemColonyId < 1) {
-      itemColonyId = 3;
-    }
-
-    Clans clansContract = Clans(clansAddress);
-    (uint256 ownerColonyId, , ) = clansContract.clanStructs(_msgSender());
-
-    require(itemColonyId == ownerColonyId, "This item does not belong to your colony!");
-
-    clansContract.safeTransferFrom(_msgSender(), owner(), itemColonyId, cost, "");
-    landToItemColony[landTokenId][itemId] += cost;
   }
 
   /** STAKING */

@@ -1,25 +1,18 @@
-const { utils } = require("ethers");
-
 async function main() {
-    // Get owner/deployer's wallet address
-    //const [owner] = await hre.ethers.getSigners();
+  const contractFactory = await hre.ethers.getContractFactory("Oxygen");
+  const networkName = hre.network.name;
+  const networkUrl = hre.network.config.url;
 
-    // Get contract that we want to deploy
-    const contractFactory = await hre.ethers.getContractFactory("Oxygen");
+  const contract = await contractFactory.deploy();
+  await contract.deployed();
 
-    // Deploy contract with the correct constructor arguments
-    const contract = await contractFactory.deploy();
-
-    // Wait for this transaction to be mined
-    await contract.deployed();
-
-    // Get contract address
-    console.log("Contract deployed to:", contract.address);
+  console.log("Deploying to network", networkName, networkUrl);
+  console.log("Contract deployed to:", contract.address);
 }
 
 main()
-    .then(() => process.exit(0))
-    .catch((error) => {
-        console.error(error);
-        process.exit(1);
-    });
+  .then(() => process.exit(0))
+  .catch((error) => {
+    console.error(error);
+    process.exit(1);
+  });
