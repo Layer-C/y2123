@@ -163,6 +163,8 @@ describe("Land Contract", function () {
     expect(stakedIds.length).equal(5);
     expect(stakedIds).to.eql([ethers.BigNumber.from(0), ethers.BigNumber.from(1), ethers.BigNumber.from(2), ethers.BigNumber.from(3), ethers.BigNumber.from(8)]);
     expect(landIds).to.eql([ethers.BigNumber.from(0), ethers.BigNumber.from(0), ethers.BigNumber.from(0), ethers.BigNumber.from(0), ethers.BigNumber.from(0)]);
+    [stakedIds, stakedTimestamps, landIds] = await landContract.stakedByOwnerInternal(y2Contract.address, accounts[1].address);
+    expect(stakedIds.length).equal(0);
     //let uniqueLandIds = Array.from(new Set(landIds));
     //expect(uniqueLandIds).to.equal(1);
     //console.log(stakedTimestamps);
