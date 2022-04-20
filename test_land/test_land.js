@@ -139,17 +139,58 @@ describe("Land Contract", function () {
 
     //Stake one CS1 into Land ID 0
     await landContract.connect(accounts[0]).stakeInternal(y1Contract.address, [0], 0);
-    //Stake few CS1 into Land ID 0
+      
+    
+     //Stake few CS1 into Land ID 0
     await landContract.connect(accounts[0]).stakeInternal(y1Contract.address, [1, 2, 3], 0);
+    await landContract.connect(accounts[0]).stakeInternal(y1Contract.address, [8], 0);
 
+    await landContract.updateContract(y2Contract.address, false);
+    await expect(landContract.connect(accounts[0]).stakeInternal(y2Contract.address, [4, 5, 6], 5)).to.be.revertedWith("Token contract is not active"); //checked it for understanding the code
+    await landContract.updateContract(y2Contract.address, true);
+    await landContract.connect(accounts[0]).stakeInternal(y2Contract.address, [4, 5, 6], 5);
+
+    await expect(landContract.connect(accounts[0]).stakeInternal(y1Contract.address, [7, 8], 12)).to.be.revertedWith("You do not own this land!");
     //Stake one CS1 into Land ID 10
     await landContract.connect(accounts[1]).stakeInternal(y1Contract.address, [10], 10);
     //Stake few CS1 into Land ID 10
     await landContract.connect(accounts[1]).stakeInternal(y1Contract.address, [11, 12, 13], 10);
 
+
     //TEST function stakedByOwnerInternal(address contractAddress, address owner)
+
+    let [stakedIds, stakedTimestamps, landIds] = await landContract.stakedByOwnerInternal(y1Contract.address, accounts[0].address);
+    expect(stakedIds.length).equal(5);
+    expect(stakedIds).to.eql([ethers.BigNumber.from(0), ethers.BigNumber.from(1), ethers.BigNumber.from(2), ethers.BigNumber.from(3), ethers.BigNumber.from(8)]);
+    expect(landIds).to.eql([ethers.BigNumber.from(0), ethers.BigNumber.from(0), ethers.BigNumber.from(0), ethers.BigNumber.from(0), ethers.BigNumber.from(0)]);
+    //let uniqueLandIds = Array.from(new Set(landIds));
+    //expect(uniqueLandIds).to.equal(1);
+    //console.log(stakedTimestamps);
+
+
     //TEST function stakedByLandInternal(address contractAddress, uint256 landId)
+
+    let [LstakedIds, LstakedTimestamps, owners] = await landContract.stakedByLandInternal(y1Contract.address, 0);
+    expect(stakedIds.length).equal(5);
+
+
     //TEST function stakedByTokenInternal(address contractAddress, uint256 tokenId)
+
+    let [owner, landId, TimestampInternal] = await landContract.stakedByTokenInternal(y1Contract.address, 1);
+    expect(owner).to.equal(accounts[0].address);
+    expect(landId).to.equal(0);
+
+    await landContract.connect(accounts[0]).unstakeInternal(y1Contract.address, [1, 2], 0);
+    [stakedIds, stakedTimestamps, landIds] = await landContract.stakedByOwnerInternal(y1Contract.address, accounts[0].address);
+    expect(stakedIds.length).equal(3);
+
+
+    contract = await ethers.getContractFactory("Y2123");
+    y3Contract = await contract.deploy(cs_uri, landContract.address, proxyContract.address);
+    await y3Contract.deployed();
+    await expect(landContract.connect(accounts[0]).stakeInternal(y3Contract.address, [0], 0)).to.be.revertedWith("Token contract is not active");
+
+    await expect(landContract.connect(accounts[1]).addContract(y2Contract.address)).to.be.revertedWith("Ownable: caller is not the owner");
 
     /** STAKE ON LAND - EXTERNAL HELPERS */
 
