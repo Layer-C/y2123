@@ -112,7 +112,7 @@ describe("Land Contract", function () {
   });
 */
 
-  it("Staking into Land NFT", async () => {
+  it("Staking into Land NFT and Upgrades", async () => {
     //Mint OXGN for 3 test acc so can buy Land NFT
     await oContract.mint(accounts[0].address, ethers.utils.parseEther("100000.0"));
     await oContract.mint(accounts[1].address, ethers.utils.parseEther("100000.0"));
@@ -268,6 +268,12 @@ describe("Land Contract", function () {
     expect(owner).to.equal(accounts[1].address);
     expect(landId).to.equal(0);
     expect(parseInt(stakedTimestamps[0])).greaterThan(0);
+    
+     //BuyUpgrades
+
+    await expect(landContract.connect(accounts[0]).buyUpgrades(0, 32, 50)).to.be.revertedWith("'This item does not belong to your colony!'");
+    await expect(landContract.connect(accounts[1]).buyUpgrades(0, 32, 50)).to.be.revertedWith("You do not own this land!");
+    await expect(landContract.connect(accounts[0]).buyUpgrades(0, 4, 50)).to.be.reverted("This item does not belong to your colony!");
 
   });
   it("All the remaining Functions", async () => {
