@@ -149,6 +149,9 @@ describe("Land Contract", function () {
     await expect(landContract.connect(accounts[0]).stakeInternal(y2Contract.address, [4, 5, 6], 5)).to.be.revertedWith("Token contract is not active"); //checked it for understanding the code
     await landContract.updateContract(y2Contract.address, true);
     await landContract.connect(accounts[0]).stakeInternal(y2Contract.address, [4, 5, 6], 5);
+    
+    await expect(landContract.connect(accounts[1]).stakeInternal(y1Contract.address, [8], 0)).to.be.revertedWith("You do not own this land!");
+    await expect(landContract.connect(accounts[1]).stakeInternal(y2Contract.address, [8], 13)).to.be.revertedWith("TransferFromIncorrectOwner()");
 
     await expect(landContract.connect(accounts[0]).stakeInternal(y1Contract.address, [7, 8], 12)).to.be.revertedWith("You do not own this land!");
     //Stake one CS1 into Land ID 10
