@@ -79,6 +79,8 @@ describe("Land Contract", function () {
 
     totSupply = await landContract.totalSupply();
     expect(totSupply).to.equal(tokenOwner1.length);
+    
+    await expect(landContract.paidMint(500)).to.be.revertedWith("Please try minting with less, not enough supply!");
   });
   /*
   it("Staking", async () => {
@@ -273,7 +275,7 @@ describe("Land Contract", function () {
 
     await expect(landContract.connect(accounts[0]).buyUpgrades(0, 32, 50)).to.be.revertedWith("'This item does not belong to your colony!'");
     await expect(landContract.connect(accounts[1]).buyUpgrades(0, 32, 50)).to.be.revertedWith("You do not own this land!");
-    await expect(landContract.connect(accounts[0]).buyUpgrades(0, 4, 50)).to.be.reverted("This item does not belong to your colony!");
+    await expect(landContract.connect(accounts[0]).buyUpgrades(0, 4, 50)).to.be.revertedWith("This item does not belong to your colony!");
 
   });
   it("All the remaining Functions", async () => {
