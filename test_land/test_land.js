@@ -314,6 +314,30 @@ describe("Land Contract", function () {
     // await expect(landContract.owner()).is.Address(accounts[1].address);
 
     //await landContract.upgradeTank();
+    transferLogic = await landContract.transferLogicEnabled();
+    expect(transferLogic).to.be.false;
+    await landContract.toggleTransferLogic();
+    transferLogic = await landContract.transferLogicEnabled();
+    expect(transferLogic).to.be.true;
+
+    proxyEnabled = await landContract.openseaProxyEnabled();
+    expect(proxyEnabled).to.be.true;
+    await landContract.toggleOpenseaProxy();
+    proxyEnabled = await landContract.openseaProxyEnabled();
+    expect(proxyEnabled).to.be.false;
+
+    sameColonyEnabled = await landContract.upgradeSameColonyEnabled();
+    expect(sameColonyEnabled).to.be.true;
+    await landContract.toggleUpgradeSameColony();
+    sameColonyEnabled = await landContract.upgradeSameColonyEnabled();
+    expect(sameColonyEnabled).to.be.false;
+
+    saleEnabled = await landContract.saleEnabled();
+    expect(saleEnabled).to.be.true;
+    await landContract.toggleSale();
+    saleEnabled = await landContract.saleEnabled();
+    expect(saleEnabled).to.be.false;
+
 
   });
 });
