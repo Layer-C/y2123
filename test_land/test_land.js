@@ -313,7 +313,7 @@ describe("Land Contract", function () {
     //await landContract.transferOwnership(accounts[1].address);
     // await expect(landContract.owner()).is.Address(accounts[1].address);
 
-    await landContract.upgradeTank();
+    //await landContract.upgradeTank();
 
   });
 });
