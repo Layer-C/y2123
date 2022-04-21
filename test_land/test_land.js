@@ -79,6 +79,10 @@ describe("Land Contract", function () {
 
     totSupply = await landContract.totalSupply();
     expect(totSupply).to.equal(tokenOwner1.length);
+    
+    await expect(landContract.paidMint(500)).to.be.revertedWith("Please try minting with less, not enough supply!");
+    await landContract.toggleSale();
+    await expect(landContract.paidMint(1)).to.be.revertedWith("Sale not enabled");
   });
   /*
   it("Staking", async () => {
@@ -112,7 +116,7 @@ describe("Land Contract", function () {
   });
 */
 
-  it("Staking into Land NFT", async () => {
+  it("Staking into Land NFT and Upgrades", async () => {
     //Mint OXGN for 3 test acc so can buy Land NFT
     await oContract.mint(accounts[0].address, ethers.utils.parseEther("100000.0"));
     await oContract.mint(accounts[1].address, ethers.utils.parseEther("100000.0"));
@@ -139,9 +143,9 @@ describe("Land Contract", function () {
 
     //Stake one CS1 into Land ID 0
     await landContract.connect(accounts[0]).stakeInternal(y1Contract.address, [0], 0);
-      
-    
-     //Stake few CS1 into Land ID 0
+
+
+    //Stake few CS1 into Land ID 0
     await landContract.connect(accounts[0]).stakeInternal(y1Contract.address, [1, 2, 3], 0);
     await landContract.connect(accounts[0]).stakeInternal(y1Contract.address, [8], 0);
 
@@ -150,30 +154,45 @@ describe("Land Contract", function () {
     await landContract.updateContract(y2Contract.address, true);
     await landContract.connect(accounts[0]).stakeInternal(y2Contract.address, [4, 5, 6], 5);
 
+    await expect(landContract.connect(accounts[1]).stakeInternal(y1Contract.address, [8], 0)).to.be.revertedWith("You do not own this land!");
+    await expect(landContract.connect(accounts[1]).stakeInternal(y2Contract.address, [8], 13)).to.be.revertedWith("TransferFromIncorrectOwner()");
+    await landContract.connect(accounts[1]).stakeInternal(y2Contract.address, [13], 13);
+
     await expect(landContract.connect(accounts[0]).stakeInternal(y1Contract.address, [7, 8], 12)).to.be.revertedWith("You do not own this land!");
     //Stake one CS1 into Land ID 10
     await landContract.connect(accounts[1]).stakeInternal(y1Contract.address, [10], 10);
     //Stake few CS1 into Land ID 10
     await landContract.connect(accounts[1]).stakeInternal(y1Contract.address, [11, 12, 13], 10);
 
+    await expect(landContract.connect(accounts[1]).stakeInternal(y2Contract.address, [13], 13)).to.be.revertedWith("TransferFromIncorrectOwner()");
 
+    await expect(landContract.connect(accounts[0]).unstakeInternal(y1Contract.address, [10], 9)).to.be.revertedWith("Token is not staked"); // here token is staked but not owned by the account 0, wrong message
+    await expect(landContract.connect(accounts[2]).stakeInternal(y1Contract.address, [21, 22], 9)).to.be.revertedWith("You do not own this land!");
+    await expect(landContract.connect(accounts[0]).unstakeInternal(y1Contract.address, [1, 2, 11], 0)).to.be.revertedWith("Token is not staked");
+
+
+
+
+    await expect(landContract.connect(accounts[2]).unstakeInternal(y1Contract.address, [1, 2, 11], 0)).to.be.revertedWith("You do not own this land!");
+    await landContract.connect(accounts[2]).stakeInternal(y1Contract.address, [21, 22], 20);
+    await expect(landContract.connect(accounts[2]).stakeInternal(y1Contract.address, [21, 17], 20)).to.be.revertedWith("TransferFromIncorrectOwner()");
     //TEST function stakedByOwnerInternal(address contractAddress, address owner)
 
     let [stakedIds, stakedTimestamps, landIds] = await landContract.stakedByOwnerInternal(y1Contract.address, accounts[0].address);
     expect(stakedIds.length).equal(5);
     expect(stakedIds).to.eql([ethers.BigNumber.from(0), ethers.BigNumber.from(1), ethers.BigNumber.from(2), ethers.BigNumber.from(3), ethers.BigNumber.from(8)]);
     expect(landIds).to.eql([ethers.BigNumber.from(0), ethers.BigNumber.from(0), ethers.BigNumber.from(0), ethers.BigNumber.from(0), ethers.BigNumber.from(0)]);
+    expect(parseInt(stakedTimestamps[0])).greaterThan(0);
+
     [stakedIds, stakedTimestamps, landIds] = await landContract.stakedByOwnerInternal(y2Contract.address, accounts[1].address);
-    expect(stakedIds.length).equal(0);
-    //let uniqueLandIds = Array.from(new Set(landIds));
-    //expect(uniqueLandIds).to.equal(1);
-    //console.log(stakedTimestamps);
-
-
+    expect(stakedIds.length).equal(1);
+    expect(stakedIds).to.eql([ethers.BigNumber.from(13)]);
+    expect(landIds).to.eql([ethers.BigNumber.from(13)]);
+    expect(parseInt(stakedTimestamps[0])).greaterThan(0);
     //TEST function stakedByLandInternal(address contractAddress, uint256 landId)
 
     let [LstakedIds, LstakedTimestamps, owners] = await landContract.stakedByLandInternal(y1Contract.address, 0);
-    expect(stakedIds.length).equal(5);
+    expect(LstakedIds.length).equal(5);
     expect(parseInt(LstakedTimestamps[0])).greaterThan(0);
     for (let i = 0; i < LstakedIds.length; i++) {
 
@@ -190,12 +209,13 @@ describe("Land Contract", function () {
     }
 
 
-
     //TEST function stakedByTokenInternal(address contractAddress, uint256 tokenId)
 
     let [owner, landId, TimestampInternal] = await landContract.stakedByTokenInternal(y1Contract.address, 1);
     expect(owner).to.equal(accounts[0].address);
     expect(landId).to.equal(0);
+
+    await landContract.stakedByTokenInternal(y1Contract.address, 35); // this should have given error no token 31
 
     await landContract.connect(accounts[0]).unstakeInternal(y1Contract.address, [1, 2], 0);
     [stakedIds, stakedTimestamps, landIds] = await landContract.stakedByOwnerInternal(y1Contract.address, accounts[0].address);
@@ -208,22 +228,115 @@ describe("Land Contract", function () {
     await expect(landContract.connect(accounts[0]).stakeInternal(y3Contract.address, [0], 0)).to.be.revertedWith("Token contract is not active");
 
     await expect(landContract.connect(accounts[1]).addContract(y2Contract.address)).to.be.revertedWith("Ownable: caller is not the owner");
+    //await landContract.connect(accounts[0]).unstakeInternal(y1Contract.address, [8], 0);
 
     /** STAKE ON LAND - EXTERNAL HELPERS */
 
     //Stake one CS1 into Land ID 0
     await landContract.connect(accounts[0]).stake(y1Contract.address, [4], 0);
+    await expect(landContract.connect(accounts[0]).stake(y1Contract.address, [25], 0)).to.be.revertedWith("TransferFromIncorrectOwner()");
+    await expect(landContract.connect(accounts[0]).stake(y2Contract.address, [25], 0)).to.be.revertedWith("TransferFromIncorrectOwner()");
     //Stake few CS1 into Land ID 0
     await landContract.connect(accounts[0]).stake(y1Contract.address, [5, 6, 7], 0);
-
+    await landContract.connect(accounts[0]).stake(y1Contract.address, [1, 2], 0); // it was already staked before
+    await expect(landContract.connect(accounts[0]).stake(y1Contract.address, [8], 15)).to.be.revertedWith("TransferFromIncorrectOwner()");
+    await landContract.connect(accounts[0]).unstakeInternal(y1Contract.address, [8], 0);
+    await landContract.connect(accounts[0]).stake(y1Contract.address, [8], 15);
+    await expect(landContract.connect(accounts[0]).stake(y1Contract.address, [8], 35)).to.be.revertedWith("'Value higher than total supply'");
+    await landContract.updateContract(y1Contract.address, false);
+    await expect(landContract.connect(accounts[0]).stake(y1Contract.address, [8], 35)).to.be.revertedWith("Token contract is not active");
+    await landContract.updateContract(y1Contract.address, true);
     //Stake one CS1 into Land ID 0
     await landContract.connect(accounts[1]).stake(y1Contract.address, [14], 0);
     //Stake few CS1 into Land ID 0
     await landContract.connect(accounts[1]).stake(y1Contract.address, [15, 16, 17], 0);
+    await landContract.connect(accounts[1]).stake(y1Contract.address, [18, 19], 2);
 
     //TEST function stakedByOwner(address contractAddress, address owner)
+    [stakedIds, stakedTimestamps, landIds] = await landContract.stakedByOwner(y1Contract.address, accounts[1].address);
+    expect(stakedIds.length).equal(6);
+    expect(stakedIds).to.eql([ethers.BigNumber.from(14), ethers.BigNumber.from(15), ethers.BigNumber.from(16), ethers.BigNumber.from(17), ethers.BigNumber.from(18), ethers.BigNumber.from(19)]);
+    expect(landIds).to.eql([ethers.BigNumber.from(0), ethers.BigNumber.from(0), ethers.BigNumber.from(0), ethers.BigNumber.from(0), ethers.BigNumber.from(2), ethers.BigNumber.from(2)]);
+    expect(parseInt(stakedTimestamps[0])).greaterThan(0);
+    
     //TEST function stakedByLand(address contractAddress, uint256 landId)
+    [stakedIds, stakedTimestamps, owners] = await landContract.stakedByLand(y1Contract.address, 15);
+    expect(stakedIds.length).equal(1);
+    expect(stakedIds).to.eql([ethers.BigNumber.from(8)]);
+    expect(owners).to.eql([accounts[0].address]);
+    expect(parseInt(stakedTimestamps[0])).greaterThan(0);
+    
     //TEST function stakedByToken(address contractAddress, uint256 tokenId)
+    
+    [owner, landId, TimestampInternal] = await landContract.stakedByToken(y1Contract.address, 17);
+    expect(owner).to.equal(accounts[1].address);
+    expect(landId).to.equal(0);
+    expect(parseInt(stakedTimestamps[0])).greaterThan(0);
+    
+     //BuyUpgrades
+
+    await expect(landContract.connect(accounts[0]).buyUpgrades(0, 32, 50)).to.be.revertedWith("'This item does not belong to your colony!'");
+    await expect(landContract.connect(accounts[1]).buyUpgrades(0, 32, 50)).to.be.revertedWith("You do not own this land!");
+    await expect(landContract.connect(accounts[0]).buyUpgrades(0, 4, 50)).to.be.revertedWith("This item does not belong to your colony!");
+
+  });
+  it("Renounce Ownership", async () => {
+
+    await landContract.renounceOwnership();
+    await expect(landContract.setBaseURI("a")).to.be.revertedWith("Ownable: caller is not the owner");
+
+  });
+  it("Transfer Functions", async () => {
+
+    await oContract.mint(accounts[0].address, ethers.utils.parseEther("100000.0"));
+    await oContract.mint(accounts[1].address, ethers.utils.parseEther("100000.0"));
+
+    //Mint 10 Land NFT for 3 test acc
+    await landContract.connect(accounts[0]).paidMint(10);
+    await landContract.connect(accounts[1]).paidMint(10);
+
+    await landContract["safeTransferFrom(address,address,uint256)"](accounts[0].address, accounts[1].address, 5);
+    const [...tokenOwner] = await landContract.getTokenIDs(accounts[0].address);
+    expect(await tokenOwner.length).to.equal(9);
+    await expect(landContract["safeTransferFrom(address,address,uint256)"](accounts[0].address, accounts[1].address, 15)).to.be.revertedWith("TransferFromIncorrectOwner()");
+    await expect(landContract["safeTransferFrom(address,address,uint256)"](accounts[2].address, accounts[1].address, 15)).to.be.revertedWith("TransferFromIncorrectOwner()");
+    
+  });
+  it("All the remaining Functions", async () => {
+
+    await landContract.addContract(oContract.address); // it should have sent an error but it is not doing so, oContract is not an NFT contract, similarly it won't show error on another NFT contract
+    await oContract.mint(accounts[0].address, ethers.utils.parseEther("100000.0"));
+    await expect(landContract.connect(accounts[0]).approve(oContract.address, 4)).to.be.revertedWith("OwnerQueryForNonexistentToken()");
+     await landContract.setTankPrices([2, 3, 6]);
+    // await landContract.setTankPrices([2, -3, 6]); this was giving an error
+
+    //await landContract.transferOwnership(accounts[1].address);
+    // await expect(landContract.owner()).is.Address(accounts[1].address);
+
+    //await landContract.upgradeTank();
+    transferLogic = await landContract.transferLogicEnabled();
+    expect(transferLogic).to.be.false;
+    await landContract.toggleTransferLogic();
+    transferLogic = await landContract.transferLogicEnabled();
+    expect(transferLogic).to.be.true;
+
+    proxyEnabled = await landContract.openseaProxyEnabled();
+    expect(proxyEnabled).to.be.true;
+    await landContract.toggleOpenseaProxy();
+    proxyEnabled = await landContract.openseaProxyEnabled();
+    expect(proxyEnabled).to.be.false;
+
+    sameColonyEnabled = await landContract.upgradeSameColonyEnabled();
+    expect(sameColonyEnabled).to.be.true;
+    await landContract.toggleUpgradeSameColony();
+    sameColonyEnabled = await landContract.upgradeSameColonyEnabled();
+    expect(sameColonyEnabled).to.be.false;
+
+    saleEnabled = await landContract.saleEnabled();
+    expect(saleEnabled).to.be.true;
+    await landContract.toggleSale();
+    saleEnabled = await landContract.saleEnabled();
+    expect(saleEnabled).to.be.false;
 
 
   });
