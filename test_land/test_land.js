@@ -81,6 +81,8 @@ describe("Land Contract", function () {
     expect(totSupply).to.equal(tokenOwner1.length);
     
     await expect(landContract.paidMint(500)).to.be.revertedWith("Please try minting with less, not enough supply!");
+    await landContract.toggleSale();
+    await expect(landContract.paidMint(1)).to.be.revertedWith("Sale not enabled");
   });
   /*
   it("Staking", async () => {
