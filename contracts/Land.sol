@@ -86,7 +86,7 @@ contract Land is ERC721A, Ownable, ReentrancyGuard {
 
   function setMaxSupply(uint256 newMaxSupply) external onlyOwner {
     if (MAX_SUPPLY != newMaxSupply) {
-      require(newMaxSupply >= totalSupply(), "Value lower than total supply");
+      require(newMaxSupply > totalSupply(), "Value lower than total supply");
       MAX_SUPPLY = newMaxSupply;
     }
   }
@@ -425,6 +425,7 @@ contract Land is ERC721A, Ownable, ReentrancyGuard {
   ) external nonReentrant {
     StakedContract storage _contract = contracts[contractAddress];
     require(_contract.active, "Token contract is not active");
+    require(landTokenId < totalSupply(), "Value higher than total supply");
 
     for (uint256 i = 0; i < tokenIds.length; i++) {
       uint256 tokenId = tokenIds[i];
