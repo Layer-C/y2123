@@ -280,6 +280,28 @@ describe("Land Contract", function () {
     await expect(landContract.connect(accounts[0]).buyUpgrades(0, 4, 50)).to.be.revertedWith("This item does not belong to your colony!");
 
   });
+  it("Renounce Ownership", async () => {
+
+    await landContract.renounceOwnership();
+    await expect(landContract.setBaseURI("a")).to.be.revertedWith("Ownable: caller is not the owner");
+
+  });
+  it("Transfer Functions", async () => {
+
+    await oContract.mint(accounts[0].address, ethers.utils.parseEther("100000.0"));
+    await oContract.mint(accounts[1].address, ethers.utils.parseEther("100000.0"));
+
+    //Mint 10 Land NFT for 3 test acc
+    await landContract.connect(accounts[0]).paidMint(10);
+    await landContract.connect(accounts[1]).paidMint(10);
+
+    await landContract["safeTransferFrom(address,address,uint256)"](accounts[0].address, accounts[1].address, 5);
+    const [...tokenOwner] = await landContract.getTokenIDs(accounts[0].address);
+    expect(await tokenOwner.length).to.equal(9);
+    await expect(landContract["safeTransferFrom(address,address,uint256)"](accounts[0].address, accounts[1].address, 15)).to.be.revertedWith("TransferFromIncorrectOwner()");
+    await expect(landContract["safeTransferFrom(address,address,uint256)"](accounts[2].address, accounts[1].address, 15)).to.be.revertedWith("TransferFromIncorrectOwner()");
+    
+  });
   it("All the remaining Functions", async () => {
 
     await landContract.addContract(oContract.address); // it should have sent an error but it is not doing so, oContract is not an NFT contract, similarly it won't show error on another NFT contract
