@@ -256,6 +256,12 @@ describe("Land Contract", function () {
     expect(parseInt(stakedTimestamps[0])).greaterThan(0);
     
     //TEST function stakedByLand(address contractAddress, uint256 landId)
+    [stakedIds, stakedTimestamps, owners] = await landContract.stakedByLand(y1Contract.address, 15);
+    expect(stakedIds.length).equal(1);
+    expect(stakedIds).to.eql([ethers.BigNumber.from(8)]);
+    expect(owners).to.eql([accounts[0].address]);
+    expect(parseInt(stakedTimestamps[0])).greaterThan(0);
+    
     //TEST function stakedByToken(address contractAddress, uint256 tokenId)
 
 
