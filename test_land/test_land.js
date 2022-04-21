@@ -246,8 +246,15 @@ describe("Land Contract", function () {
     await landContract.connect(accounts[1]).stake(y1Contract.address, [14], 0);
     //Stake few CS1 into Land ID 0
     await landContract.connect(accounts[1]).stake(y1Contract.address, [15, 16, 17], 0);
+    await landContract.connect(accounts[1]).stake(y1Contract.address, [18, 19], 2);
 
     //TEST function stakedByOwner(address contractAddress, address owner)
+    [stakedIds, stakedTimestamps, landIds] = await landContract.stakedByOwner(y1Contract.address, accounts[1].address);
+    expect(stakedIds.length).equal(6);
+    expect(stakedIds).to.eql([ethers.BigNumber.from(14), ethers.BigNumber.from(15), ethers.BigNumber.from(16), ethers.BigNumber.from(17), ethers.BigNumber.from(18), ethers.BigNumber.from(19)]);
+    expect(landIds).to.eql([ethers.BigNumber.from(0), ethers.BigNumber.from(0), ethers.BigNumber.from(0), ethers.BigNumber.from(0), ethers.BigNumber.from(2), ethers.BigNumber.from(2)]);
+    expect(parseInt(stakedTimestamps[0])).greaterThan(0);
+    
     //TEST function stakedByLand(address contractAddress, uint256 landId)
     //TEST function stakedByToken(address contractAddress, uint256 tokenId)
 
