@@ -227,4 +227,12 @@ describe("Land Contract", function () {
 
 
   });
+  it("All the remaining Functions", async () => {
+
+    await landContract.addContract(oContract.address); // it should have sent an error but it is not doing so, oContract is not an NFT contract, similarly it won't show error on another NFT contract
+    await oContract.mint(accounts[0].address, ethers.utils.parseEther("100000.0"));
+    await expect(landContract.connect(accounts[0]).approve(oContract.address, 4)).to.be.revertedWith("OwnerQueryForNonexistentToken()");
+
+
+  });
 });
