@@ -263,9 +263,11 @@ describe("Land Contract", function () {
     expect(parseInt(stakedTimestamps[0])).greaterThan(0);
     
     //TEST function stakedByToken(address contractAddress, uint256 tokenId)
-
-
-
+    
+    [owner, landId, TimestampInternal] = await landContract.stakedByToken(y1Contract.address, 17);
+    expect(owner).to.equal(accounts[1].address);
+    expect(landId).to.equal(0);
+    expect(parseInt(stakedTimestamps[0])).greaterThan(0);
 
   });
   it("All the remaining Functions", async () => {
