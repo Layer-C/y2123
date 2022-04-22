@@ -565,7 +565,7 @@ contract Land is ERC721A, Ownable, ReentrancyGuard {
     _addressToTankLevel[_msgSender()]++;
   }
 
-  function upgradeTank(address receiver) external onlyOwner {
+  function upgradeTankAccount(address receiver) external onlyOwner {
     require(tankLevelOfOwner(receiver) < tankPrices.length + 1, "Tank is at max level");
     _addressToTankLevel[receiver]++;
   }
