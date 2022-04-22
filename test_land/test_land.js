@@ -22,7 +22,7 @@ describe("Land Contract", function () {
     accounts = await ethers.getSigners();
     await oContract.addAdmin(accounts[0].address);
 
-    //Deploy Clans contract so we can test buyUpgradesColony which uses ERC1155 clan tokens
+    //Deploy Clans contract so we can test buyUpgrades which depends on which colony affliation
     contract = await ethers.getContractFactory("contracts/Clans.sol:Clans");
     cContract = await contract.deploy(clan_uri, oContract.address, accounts[0].address);
     await cContract.deployed();
@@ -295,7 +295,7 @@ describe("Land Contract", function () {
     await landContract.connect(accounts[1]).stake(y1Contract.address, [10, 11], 0);
     await landContract.connect(accounts[2]).stake(y1Contract.address, [20], 0);
 
-    //TEST function stakedByOwnerInternal(address contractAddress, address owner)
+    //TEST function stakedByOwner(address contractAddress, address owner)
     [stakedIds, stakedTimestamps, landIds] = await landContract.stakedByOwner(y1Contract.address, accounts[0].address);
     expect(stakedIds.length).equal(3);
     expect(stakedIds).to.eql([ethers.BigNumber.from(0), ethers.BigNumber.from(1), ethers.BigNumber.from(2)]);
@@ -311,9 +311,144 @@ describe("Land Contract", function () {
     expect(stakedIds).to.eql([ethers.BigNumber.from(20)]);
     expect(landIds).to.eql([ethers.BigNumber.from(0)]);
 
+    //TEST function stakedByLand(address contractAddress, uint256 landId)
+    [stakedIds, stakedTimestamps, owners] = await landContract.stakedByLand(y1Contract.address, 0);
+    expect(stakedIds.length).equal(6);
+    expect(stakedIds).to.eql([ethers.BigNumber.from(0), ethers.BigNumber.from(1), ethers.BigNumber.from(2), ethers.BigNumber.from(10), ethers.BigNumber.from(11), ethers.BigNumber.from(20)]);
+    expect(stakedTimestamps.length).equal(6);
+    expect(ethers.BigNumber.from(stakedTimestamps[0]).toNumber()).to.be.greaterThan(0);
+    expect(ethers.BigNumber.from(stakedTimestamps[1]).toNumber()).to.be.greaterThan(0);
+    expect(ethers.BigNumber.from(stakedTimestamps[2]).toNumber()).to.be.greaterThan(0);
+    expect(ethers.BigNumber.from(stakedTimestamps[3]).toNumber()).to.be.greaterThan(0);
+    expect(ethers.BigNumber.from(stakedTimestamps[4]).toNumber()).to.be.greaterThan(0);
+    expect(ethers.BigNumber.from(stakedTimestamps[5]).toNumber()).to.be.greaterThan(0);
+    expect(owners).to.eql([accounts[0].address, accounts[0].address, accounts[0].address, accounts[1].address, accounts[1].address, accounts[2].address]);
+
+    //TEST function stakedByToken(address contractAddress, uint256 tokenId)
+    let [owner, landId, stakedTimestamp] = await landContract.stakedByToken(y1Contract.address, 0);
+    expect(owner).to.equal(accounts[0].address);
+    expect(landId).to.equal(0);
+    expect(ethers.BigNumber.from(stakedTimestamp).toNumber()).to.be.greaterThan(0);
+
+    [owner, landId, stakedTimestamp] = await landContract.stakedByToken(y1Contract.address, 1);
+    expect(owner).to.equal(accounts[0].address);
+    expect(landId).to.equal(0);
+    expect(ethers.BigNumber.from(stakedTimestamp).toNumber()).to.be.greaterThan(0);
+
+    [owner, landId, stakedTimestamp] = await landContract.stakedByToken(y1Contract.address, 2);
+    expect(owner).to.equal(accounts[0].address);
+    expect(landId).to.equal(0);
+    expect(ethers.BigNumber.from(stakedTimestamp).toNumber()).to.be.greaterThan(0);
+
+    [owner, landId, stakedTimestamp] = await landContract.stakedByToken(y1Contract.address, 10);
+    expect(owner).to.equal(accounts[1].address);
+    expect(landId).to.equal(0);
+    expect(ethers.BigNumber.from(stakedTimestamp).toNumber()).to.be.greaterThan(0);
+
+    [owner, landId, stakedTimestamp] = await landContract.stakedByToken(y1Contract.address, 11);
+    expect(owner).to.equal(accounts[1].address);
+    expect(landId).to.equal(0);
+    expect(ethers.BigNumber.from(stakedTimestamp).toNumber()).to.be.greaterThan(0);
+
+    [owner, landId, stakedTimestamp] = await landContract.stakedByToken(y1Contract.address, 20);
+    expect(owner).to.equal(accounts[2].address);
+    expect(landId).to.equal(0);
+    expect(ethers.BigNumber.from(stakedTimestamp).toNumber()).to.be.greaterThan(0);
+
+    //Unstaking tests
+    await landContract.connect(accounts[0]).unstake(y1Contract.address, [1], 0);
+    await landContract.connect(accounts[1]).unstake(y1Contract.address, [10], 0);
+    await landContract.connect(accounts[2]).unstake(y1Contract.address, [20], 0);
+
+    //TEST function stakedByOwner(address contractAddress, address owner)
+    [stakedIds, stakedTimestamps, landIds] = await landContract.stakedByOwner(y1Contract.address, accounts[0].address);
+    expect(stakedIds.length).equal(2);
+    expect(stakedIds).to.have.deep.members([ethers.BigNumber.from(0), ethers.BigNumber.from(2)]);
+    expect(landIds).to.eql([ethers.BigNumber.from(0), ethers.BigNumber.from(0)]);
+
+    [stakedIds, stakedTimestamps, landIds] = await landContract.stakedByOwner(y1Contract.address, accounts[1].address);
+    expect(stakedIds.length).equal(1);
+    expect(stakedIds).to.eql([ethers.BigNumber.from(11)]);
+    expect(landIds).to.eql([ethers.BigNumber.from(0)]);
+
+    [stakedIds, stakedTimestamps, landIds] = await landContract.stakedByOwner(y1Contract.address, accounts[2].address);
+    expect(stakedIds.length).equal(0);
+    expect(stakedIds).to.eql([]);
+    expect(landIds).to.eql([]);
+
+    //TEST function stakedByLand(address contractAddress, uint256 landId)
+    [stakedIds, stakedTimestamps, owners] = await landContract.stakedByLand(y1Contract.address, 0);
+    expect(stakedIds.length).equal(3);
+    expect(stakedIds).to.have.deep.members([ethers.BigNumber.from(0), ethers.BigNumber.from(2), ethers.BigNumber.from(11)]);
+    expect(stakedTimestamps.length).equal(3);
+    expect(ethers.BigNumber.from(stakedTimestamps[0]).toNumber()).to.be.greaterThan(0);
+    expect(ethers.BigNumber.from(stakedTimestamps[1]).toNumber()).to.be.greaterThan(0);
+    expect(ethers.BigNumber.from(stakedTimestamps[2]).toNumber()).to.be.greaterThan(0);
+    expect(owners).to.have.deep.members([accounts[0].address, accounts[0].address, accounts[1].address]);
+
+    //Enumerable set does not promise order, so we need to test the values returned by array are alligned
+    for (let i = 0; i < owners.length; i++) {
+      if (owners[i] === accounts[1].address) {
+        expect(stakedIds[i]).equal(ethers.BigNumber.from(11));
+      }
+    }
+
+    //TEST function stakedByToken(address contractAddress, uint256 tokenId)
+    [owner, landId, stakedTimestamp] = await landContract.stakedByToken(y1Contract.address, 0);
+    expect(owner).to.equal(accounts[0].address);
+    expect(landId).to.equal(0);
+    expect(ethers.BigNumber.from(stakedTimestamp).toNumber()).to.be.greaterThan(0);
+
+    [owner, landId, stakedTimestamp] = await landContract.stakedByToken(y1Contract.address, 1);
+    expect(owner).to.equal(ethers.constants.AddressZero);
+    expect(landId).to.equal(0);
+    expect(ethers.BigNumber.from(stakedTimestamp).toNumber()).to.equal(0);
+
+    [owner, landId, stakedTimestamp] = await landContract.stakedByToken(y1Contract.address, 2);
+    expect(owner).to.equal(accounts[0].address);
+    expect(landId).to.equal(0);
+    expect(ethers.BigNumber.from(stakedTimestamp).toNumber()).to.be.greaterThan(0);
+
+    [owner, landId, stakedTimestamp] = await landContract.stakedByToken(y1Contract.address, 10);
+    expect(owner).to.equal(ethers.constants.AddressZero);
+    expect(landId).to.equal(0);
+    expect(ethers.BigNumber.from(stakedTimestamp).toNumber()).to.equal(0);
+
+    [owner, landId, stakedTimestamp] = await landContract.stakedByToken(y1Contract.address, 11);
+    expect(owner).to.equal(accounts[1].address);
+    expect(landId).to.equal(0);
+    expect(ethers.BigNumber.from(stakedTimestamp).toNumber()).to.be.greaterThan(0);
+
+    [owner, landId, stakedTimestamp] = await landContract.stakedByToken(y1Contract.address, 20);
+    expect(owner).to.equal(ethers.constants.AddressZero);
+    expect(landId).to.equal(0);
+    expect(ethers.BigNumber.from(stakedTimestamp).toNumber()).to.equal(0);
+
     //Stake & Unstake for another type of NFT
     await landContract.connect(accounts[1]).stake(y2Contract.address, [10, 11], 10);
     await landContract.connect(accounts[1]).unstake(y2Contract.address, [10, 11], 10);
+  });
+
+  it("Land upgrades", async () => {
+    await expect(landContract.connect(accounts[0]).buyUpgrades(0, 32, 50)).to.be.revertedWith("'This item does not belong to your colony!'");
+    await expect(landContract.connect(accounts[1]).buyUpgrades(0, 32, 50)).to.be.revertedWith("You do not own this land!");
+    await expect(landContract.connect(accounts[0]).buyUpgrades(0, 4, 50)).to.be.revertedWith("This item does not belong to your colony!");
+
+    await landContract.connect(accounts[0]).buyUpgrades(0, 3, ethers.utils.parseEther("100"));
+    let itemPrice = await landContract.landToItem(0, 3);
+    expect(itemPrice).to.eql(ethers.utils.parseEther("100"));
+
+    await landContract.connect(accounts[0]).buyUpgrades(0, 3, ethers.utils.parseEther("150"));
+    itemPrice = await landContract.landToItem(0, 3);
+    expect(itemPrice).to.eql(ethers.utils.parseEther("250"));
+
+    await landContract.connect(accounts[0]).buyUpgrades(0, 9, ethers.utils.parseEther("15"));
+    itemPrice = await landContract.landToItem(0, 9);
+    expect(itemPrice).to.eql(ethers.utils.parseEther("15"));
+
+    await landContract.connect(accounts[0]).buyUpgrades(1, 12, ethers.utils.parseEther("51"));
+    itemPrice = await landContract.landToItem(1, 12);
+    expect(itemPrice).to.eql(ethers.utils.parseEther("51"));
   });
 
   it("All the remaining Functions", async () => {
@@ -333,11 +468,6 @@ describe("Land Contract", function () {
     expect(await landContract.tankLevelOfOwner(accounts[0].address)).to.equal(1);
     await landContract.connect(accounts[0]).upgradeTank();
     expect(await landContract.tankLevelOfOwner(accounts[0].address)).to.equal(2);
-
-    //BuyUpgrades
-    await expect(landContract.connect(accounts[0]).buyUpgrades(0, 32, 50)).to.be.revertedWith("'This item does not belong to your colony!'");
-    await expect(landContract.connect(accounts[1]).buyUpgrades(0, 32, 50)).to.be.revertedWith("You do not own this land!");
-    await expect(landContract.connect(accounts[0]).buyUpgrades(0, 4, 50)).to.be.revertedWith("This item does not belong to your colony!");
 
     transferLogic = await landContract.transferLogicEnabled();
     expect(transferLogic).to.be.false;
@@ -432,8 +562,6 @@ describe("Land Contract", function () {
     expect(owner).to.equal(accounts[0].address);
     expect(landId).to.equal(0);
 
-    await landContract.stakedByTokenInternal(y1Contract.address, 35); // this should have given error no token 31
-
     await landContract.connect(accounts[0]).unstakeInternal(y1Contract.address, [1, 2], 0);
     [stakedIds, stakedTimestamps, landIds] = await landContract.stakedByOwnerInternal(y1Contract.address, accounts[0].address);
     expect(stakedIds.length).equal(3);
@@ -444,14 +572,13 @@ describe("Land Contract", function () {
     await expect(landContract.connect(accounts[0]).stakeInternal(y3Contract.address, [0], 0)).to.be.revertedWith("Token contract is not active");
 
     await expect(landContract.connect(accounts[1]).addContract(y2Contract.address)).to.be.revertedWith("Ownable: caller is not the owner");
-    //await landContract.connect(accounts[0]).unstakeInternal(y1Contract.address, [8], 0);
 
     /** STAKE ON LAND - EXTERNAL HELPERS */
 
     //Stake one CS1 into Land ID 0
     await landContract.connect(accounts[0]).stake(y1Contract.address, [4], 0);
     await expect(landContract.connect(accounts[0]).stake(y1Contract.address, [25], 0)).to.be.revertedWith("TransferFromIncorrectOwner()");
-    await expect(landContract.connect(accounts[0]).stake(y2Contract.address, [25], 0)).to.be.revertedWith("TransferFromIncorrectOwner()");
+
     //Stake few CS1 into Land ID 0
     await landContract.connect(accounts[0]).stake(y1Contract.address, [5, 6, 7], 0);
     await landContract.connect(accounts[0]).stake(y1Contract.address, [1, 2], 0); // it was already staked before
@@ -462,6 +589,7 @@ describe("Land Contract", function () {
     await landContract.updateContract(y1Contract.address, false);
     await expect(landContract.connect(accounts[0]).stake(y1Contract.address, [8], 35)).to.be.revertedWith("Token contract is not active");
     await landContract.updateContract(y1Contract.address, true);
+
     //Stake one CS1 into Land ID 0
     await landContract.connect(accounts[1]).stake(y1Contract.address, [14], 0);
     //Stake few CS1 into Land ID 0
