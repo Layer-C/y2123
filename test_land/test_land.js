@@ -74,7 +74,7 @@ describe("Land Contract", function () {
     expect(await landContract.symbol()).to.equal("Y2123.Land");
     expect(await landContract.owner()).to.equal(accounts[0].address);
 
-    expect(await landContract.MAX_SUPPLY()).to.equal(500);
+    expect(await landContract.MAX_SUPPLY()).to.equal(400);
     await landContract.setMaxSupply(10000);
     expect(await landContract.MAX_SUPPLY()).to.equal(10000);
 

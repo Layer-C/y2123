@@ -1,5 +1,5 @@
 //SPDX-License-Identifier: MIT
-pragma solidity ^0.8.11;
+pragma solidity ^0.8.13;
 
 /*
 
@@ -39,7 +39,7 @@ contract Land is ERC721A, Ownable, ReentrancyGuard {
   address public clansAddress;
   address public proxyRegistryAddress;
   IOxygen public oxgnToken;
-  uint256 public MAX_SUPPLY = 500;
+  uint256 public MAX_SUPPLY = 400;
   string private baseURI;
   uint256 public mintPrice = 500 ether;
   bool public saleEnabled = true;

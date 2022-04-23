@@ -12,7 +12,7 @@ const { ALCHEMY_API_KEY, ETHERSCAN_API, TEST1_PK, DEPLOY_PK } = process.env;
  */
 module.exports = {
   solidity: {
-    version: "0.8.11",
+    version: "0.8.13",
     settings: {
       optimizer: {
         enabled: true,

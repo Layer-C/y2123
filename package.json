@@ -19,9 +19,9 @@
     "keccak256": "^1.0.6",
     "merkletreejs": "^0.2.31",
     "chai": "^4.3.6",
-    "erc721a": "^3.1.0",
+    "erc721a": "^3.2.0",
     "ethereum-waffle": "^3.4.4",
-    "ethers": "^5.6.2",
+    "ethers": "^5.6.4",
     "hardhat": "^2.9.3",
     "prettier": "^2.6.2",
     "prettier-plugin-solidity": "^1.0.0-beta.19"
