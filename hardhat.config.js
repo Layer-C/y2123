@@ -1,5 +1,6 @@
 require("@nomiclabs/hardhat-waffle");
 require("@nomiclabs/hardhat-etherscan");
+require("hardhat-gas-reporter");
 require("dotenv").config();
 
 const { ALCHEMY_API_KEY, ETHERSCAN_API, TEST1_PK, DEPLOY_PK } = process.env;
@@ -30,21 +31,37 @@ module.exports = {
       url: `https://eth-rinkeby.alchemyapi.io/v2/${ALCHEMY_API_KEY}`,
       accounts: [TEST1_PK],
     },
-    goerli: {
-      url: `https://eth-goerli.alchemyapi.io/v2/${ALCHEMY_API_KEY}`,
+    arbrinkeby: {
+      url: `https://arb-rinkeby.g.alchemy.com/v2/${ALCHEMY_API_KEY}`,
       accounts: [TEST1_PK],
     },
-    kovan: {
-      url: `https://eth-kovan.alchemyapi.io/v2/${ALCHEMY_API_KEY}`,
+    optkovan: {
+      url: `https://opt-kovan.g.alchemy.com/v2/${ALCHEMY_API_KEY}`,
       accounts: [TEST1_PK],
     },
-    ropsten: {
-      url: `https://eth-ropsten.alchemyapi.io/v2/${ALCHEMY_API_KEY}`,
+    mumbai: {
+      url: `https://polygon-mumbai.g.alchemy.com/v2/${ALCHEMY_API_KEY}`,
+      gasPrice: 35000000000,
+      saveDeployments: true,
+      accounts: [TEST1_PK],
+    },
+    fuji: {
+      url: `https://polygon-mumbai.g.alchemy.com/v2/${ALCHEMY_API_KEY}`,
+      accounts: [TEST1_PK],
+    },
+    fantomtest: {
+      url: `https://polygon-mumbai.g.alchemy.com/v2/${ALCHEMY_API_KEY}`,
+      gasPrice: 350000000000,
+      saveDeployments: true,
       accounts: [TEST1_PK],
     },
   },
   paths: {
-    tests: "./test_land",
+    tests: "./test_oxgn",
+  },
+  gasReporter: {
+    enabled: true,
+    currency: "USD",
   },
   etherscan: {
     apiKey: ETHERSCAN_API,
