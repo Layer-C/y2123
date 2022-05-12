@@ -16,3 +16,7 @@ npx hardhat run scripts/deploy_oxygen.js --network rinkeby
 
 Verify contract:
 npx hardhat verify --contract contracts/Oxygen.sol:Oxygen --network rinkeby <deployed contract address>
+
+Generate .go for GO Backend:
+solc --abi contracts/Oxygen.sol --base-path . --include-path node_modules/ -o build
+abigen --pkg contracts --abi ./build/Oxygen.abi --out ./build/Oxygen.go

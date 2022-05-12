@@ -27,8 +27,18 @@ module.exports = {
       url: `https://eth-mainnet.alchemyapi.io/v2/${ALCHEMY_API_KEY}`,
       accounts: [DEPLOY_PK],
     },
+    polygonmainnet: {
+      url: `https://polygon-mainnet.g.alchemy.com/v2/${ALCHEMY_API_KEY}`,
+      accounts: [DEPLOY_PK],
+    },
     rinkeby: {
       url: `https://eth-rinkeby.alchemyapi.io/v2/${ALCHEMY_API_KEY}`,
+      accounts: [TEST1_PK],
+    },
+    mumbai: {
+      url: `https://polygon-mumbai.g.alchemy.com/v2/${ALCHEMY_API_KEY}`,
+      gasPrice: 35000000000,
+      saveDeployments: true,
       accounts: [TEST1_PK],
     },
     arbrinkeby: {
@@ -37,12 +47,6 @@ module.exports = {
     },
     optkovan: {
       url: `https://opt-kovan.g.alchemy.com/v2/${ALCHEMY_API_KEY}`,
-      accounts: [TEST1_PK],
-    },
-    mumbai: {
-      url: `https://polygon-mumbai.g.alchemy.com/v2/${ALCHEMY_API_KEY}`,
-      gasPrice: 35000000000,
-      saveDeployments: true,
       accounts: [TEST1_PK],
     },
     fuji: {

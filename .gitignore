@@ -7,3 +7,4 @@ typechain
 .DS_Store
 cache
 artifacts
+build
