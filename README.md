@@ -1,6 +1,8 @@
-# Y2123 Project
+# Y2123.com NFT Smart Contracts
 
-Y2123 NFT Smart Contract
+Layer C (layerc.io)
+
+Created by shanq.eth
 
 Register for Alchemy API KEY
 https://dashboard.alchemyapi.io/
